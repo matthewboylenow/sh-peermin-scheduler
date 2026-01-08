@@ -128,7 +128,6 @@ export default function HomePage() {
                 </h2>
                 <p className="text-gray-600 mb-6 max-w-md mx-auto">
                   If you&apos;re a peer minister, log in to view your schedule and access resources.
-                  New to the program? Contact the parish office to get involved.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Button asChild>
