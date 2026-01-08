@@ -53,7 +53,7 @@ export async function GET() {
 
       rows.push([
         person.name,
-        person.phone,
+        person.phone || '',
         person.isActive ? 'Active' : 'Inactive',
         person.notificationsEnabled ? 'Yes' : 'No',
         person.assignments.length.toString(),

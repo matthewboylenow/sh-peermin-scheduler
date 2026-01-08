@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { eq, or, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 
 const createAdminSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Valid email required'),
-  phone: z.string().min(10, 'Valid phone number required'),
+  phone: z.string().min(10, 'Valid phone number required').optional(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   role: z.enum(['admin', 'super_admin']).default('admin'),
 });
@@ -65,35 +65,43 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createAdminSchema.parse(body);
 
-    // Format phone number
-    let formattedPhone = validatedData.phone.replace(/\D/g, '');
-    if (formattedPhone.length === 10) {
-      formattedPhone = `+1${formattedPhone}`;
-    } else if (formattedPhone.length === 11 && formattedPhone.startsWith('1')) {
-      formattedPhone = `+${formattedPhone}`;
-    } else if (!formattedPhone.startsWith('+')) {
-      formattedPhone = `+${formattedPhone}`;
+    // Format phone number if provided
+    let formattedPhone: string | null = null;
+    if (validatedData.phone) {
+      formattedPhone = validatedData.phone.replace(/\D/g, '');
+      if (formattedPhone.length === 10) {
+        formattedPhone = `+1${formattedPhone}`;
+      } else if (formattedPhone.length === 11 && formattedPhone.startsWith('1')) {
+        formattedPhone = `+${formattedPhone}`;
+      } else if (!formattedPhone.startsWith('+')) {
+        formattedPhone = `+${formattedPhone}`;
+      }
     }
 
-    // Check if email or phone already exists
-    const existingUser = await db.query.users.findFirst({
-      where: or(
-        eq(users.email, validatedData.email),
-        eq(users.phone, formattedPhone)
-      ),
+    // Check if email already exists
+    const existingEmail = await db.query.users.findFirst({
+      where: eq(users.email, validatedData.email),
     });
 
-    if (existingUser) {
-      if (existingUser.email === validatedData.email) {
+    if (existingEmail) {
+      return NextResponse.json(
+        { error: 'A user with this email already exists' },
+        { status: 400 }
+      );
+    }
+
+    // Check if phone already exists (if provided)
+    if (formattedPhone) {
+      const existingPhone = await db.query.users.findFirst({
+        where: eq(users.phone, formattedPhone),
+      });
+
+      if (existingPhone) {
         return NextResponse.json(
-          { error: 'A user with this email already exists' },
+          { error: 'A user with this phone number already exists' },
           { status: 400 }
         );
       }
-      return NextResponse.json(
-        { error: 'A user with this phone number already exists' },
-        { status: 400 }
-      );
     }
 
     // Hash password

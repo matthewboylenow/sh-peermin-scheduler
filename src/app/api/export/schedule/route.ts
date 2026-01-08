@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
               slot.capacity.toString(),
               slot.assignments.length.toString(),
               assignment.user.name,
-              assignment.user.phone,
+              assignment.user.phone || '',
             ]);
           }
         }

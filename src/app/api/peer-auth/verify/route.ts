@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session
-    await createPeerSession(user.id, user.phone, user.name);
+    // Create session (user.phone is guaranteed since we queried by phone)
+    await createPeerSession(user.id, user.phone!, user.name);
 
     return NextResponse.json({
       success: true,

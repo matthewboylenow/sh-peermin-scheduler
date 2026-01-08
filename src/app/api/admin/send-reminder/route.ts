@@ -1,10 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { assignments, smsLog } from '@/db/schema';
+import { assignments, smsLog, smsSettings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendSMS } from '@/lib/twilio';
+import { format, parseISO } from 'date-fns';
 import { z } from 'zod';
+
+// Default message template
+const DEFAULT_MESSAGE_TEMPLATE = 'Hi {name}! Reminder: You\'re scheduled for "{role}" at {event} on {date} at {time} at {location}. Thank you for serving! - Saint Helen Parish';
+
+// Format time from 24h to 12h format
+function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+
+// Format date to readable format
+function formatDate(dateStr: string): string {
+  const date = parseISO(dateStr);
+  return format(date, 'MMMM d, yyyy');
+}
+
+// Replace placeholders in template with actual values
+function renderTemplate(
+  template: string,
+  data: {
+    name: string;
+    role: string;
+    event: string;
+    date: string;
+    time: string;
+    location: string;
+  }
+): string {
+  return template
+    .replace(/\{name\}/g, data.name)
+    .replace(/\{role\}/g, data.role)
+    .replace(/\{event\}/g, data.event)
+    .replace(/\{date\}/g, data.date)
+    .replace(/\{time\}/g, data.time)
+    .replace(/\{location\}/g, data.location || 'TBD');
+}
 
 const sendReminderSchema = z.object({
   assignmentId: z.string().uuid(),
@@ -48,9 +87,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Format the message
-    const message = validatedData.customMessage ||
-      `Hi ${user.name}! This is a reminder that you're scheduled for "${slot.name}" at ${slot.event.title} on ${slot.event.eventDate} at ${slot.event.startTime}${slot.event.location ? ` at ${slot.event.location}` : ''}. Thank you for serving! - Saint Helen Parish`;
+    // Get the configured message template or use custom message
+    let message: string;
+    if (validatedData.customMessage) {
+      message = validatedData.customMessage;
+    } else {
+      // Fetch the configured template
+      const settings = await db.query.smsSettings.findFirst();
+      const template = settings?.messageTemplate || DEFAULT_MESSAGE_TEMPLATE;
+
+      message = renderTemplate(template, {
+        name: user.name,
+        role: slot.name,
+        event: slot.event.title,
+        date: formatDate(slot.event.eventDate),
+        time: formatTime(slot.event.startTime),
+        location: slot.event.location || '',
+      });
+    }
 
     // Send SMS
     const twilioSid = await sendSMS(user.phone, message);
@@ -66,10 +120,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (twilioSid) {
-      // Mark reminder as sent
-      await db.update(assignments)
-        .set({ reminderSent: true })
-        .where(eq(assignments.id, assignment.id));
+      // Mark as manually reminded (use -1 to indicate manual reminder)
+      const currentSentDays: number[] = JSON.parse(assignment.remindersSent || '[]');
+      if (!currentSentDays.includes(-1)) {
+        const updatedSentDays = [...currentSentDays, -1].sort((a, b) => a - b);
+        await db.update(assignments)
+          .set({ remindersSent: JSON.stringify(updatedSentDays) })
+          .where(eq(assignments.id, assignment.id));
+      }
 
       return NextResponse.json({
         success: true,

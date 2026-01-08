@@ -40,7 +40,7 @@ import {
 interface Admin {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   role: "admin" | "super_admin";
   isActive: boolean;
@@ -89,7 +89,7 @@ export default function AdminDetailPage({
         setAdmin(data);
         setName(data.name);
         setEmail(data.email || "");
-        setPhone(formatPhoneDisplay(data.phone));
+        setPhone(data.phone ? formatPhoneDisplay(data.phone) : "");
         setRole(data.role);
       } else if (response.status === 404) {
         router.push("/admin/admins");
@@ -132,7 +132,7 @@ export default function AdminDetailPage({
     setSuccessMessage("");
 
     const phoneDigits = phone.replace(/\D/g, "");
-    if (phoneDigits.length !== 10) {
+    if (phone && phoneDigits.length !== 10) {
       setError("Please enter a valid 10-digit phone number");
       return;
     }
@@ -150,10 +150,10 @@ export default function AdminDetailPage({
     setIsSaving(true);
 
     try {
-      const updateData: Record<string, string | boolean> = {
+      const updateData: Record<string, string | boolean | null> = {
         name,
         email,
-        phone: phoneDigits,
+        phone: phoneDigits || null,
       };
 
       if (newPassword) {
@@ -387,7 +387,7 @@ export default function AdminDetailPage({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
+                <Label htmlFor="phone">Phone Number (Optional)</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
@@ -395,6 +395,7 @@ export default function AdminDetailPage({
                     type="tel"
                     value={phone}
                     onChange={handlePhoneChange}
+                    placeholder="(908) 555-1234"
                     className="pl-10"
                   />
                 </div>

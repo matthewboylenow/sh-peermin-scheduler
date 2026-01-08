@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       result = result.filter(
         user =>
           user.name.toLowerCase().includes(searchLower) ||
-          user.phone.includes(search)
+          (user.phone && user.phone.includes(search))
       );
     }
 

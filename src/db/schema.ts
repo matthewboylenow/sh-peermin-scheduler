@@ -10,7 +10,7 @@ export const recurrenceTypeEnum = pgEnum('recurrence_type', ['none', 'daily', 'w
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
-  phone: text('phone').unique().notNull(),
+  phone: text('phone').unique(), // Optional for admins who use email/password
   email: text('email').unique(), // Only for admins
   passwordHash: text('password_hash'), // Only for admins
   role: userRoleEnum('role').notNull().default('peer_minister'),
@@ -57,7 +57,7 @@ export const assignments = pgTable('assignments', {
   id: uuid('id').defaultRandom().primaryKey(),
   slotId: uuid('slot_id').references(() => slots.id, { onDelete: 'cascade' }).notNull(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  reminderSent: boolean('reminder_sent').notNull().default(false),
+  remindersSent: text('reminders_sent').notNull().default('[]'), // JSON array of reminder days sent, e.g., "[1, 3]"
   notes: text('notes'),
   createdBy: uuid('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -104,6 +104,17 @@ export const adminSettings = pgTable('admin_settings', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Global SMS Settings (singleton - one row for entire app)
+export const smsSettings = pgTable('sms_settings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  reminderDays: text('reminder_days').notNull().default('[1]'), // JSON array of days before event to send reminders
+  messageTemplate: text('message_template').notNull().default(
+    'Hi {name}! Reminder: You\'re scheduled for "{role}" at {event} on {date} at {time} at {location}. Thank you for serving! - Saint Helen Parish'
+  ),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+});
+
 // SMS Log (for tracking sent messages)
 export const smsLog = pgTable('sms_log', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -118,7 +129,8 @@ export const smsLog = pgTable('sms_log', {
 
 // Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
-  assignments: many(assignments),
+  assignments: many(assignments, { relationName: 'assignedUser' }),
+  createdAssignments: many(assignments, { relationName: 'assignmentCreator' }),
   createdEvents: many(events),
   uploadedFiles: many(files),
   adminSettings: one(adminSettings),
@@ -138,8 +150,8 @@ export const slotsRelations = relations(slots, ({ one, many }) => ({
 
 export const assignmentsRelations = relations(assignments, ({ one }) => ({
   slot: one(slots, { fields: [assignments.slotId], references: [slots.id] }),
-  user: one(users, { fields: [assignments.userId], references: [users.id] }),
-  createdByUser: one(users, { fields: [assignments.createdBy], references: [users.id] }),
+  user: one(users, { fields: [assignments.userId], references: [users.id], relationName: 'assignedUser' }),
+  createdByUser: one(users, { fields: [assignments.createdBy], references: [users.id], relationName: 'assignmentCreator' }),
 }));
 
 export const foldersRelations = relations(folders, ({ one, many }) => ({
@@ -175,5 +187,7 @@ export type VerificationCode = typeof verificationCodes.$inferSelect;
 export type NewVerificationCode = typeof verificationCodes.$inferInsert;
 export type AdminSettings = typeof adminSettings.$inferSelect;
 export type NewAdminSettings = typeof adminSettings.$inferInsert;
+export type SmsSettings = typeof smsSettings.$inferSelect;
+export type NewSmsSettings = typeof smsSettings.$inferInsert;
 export type SmsLog = typeof smsLog.$inferSelect;
 export type NewSmsLog = typeof smsLog.$inferInsert;

@@ -82,9 +82,9 @@ export default function NewAdminPage() {
     e.preventDefault();
     setError("");
 
-    // Validate phone
+    // Validate phone (if provided)
     const phoneDigits = phone.replace(/\D/g, "");
-    if (phoneDigits.length !== 10) {
+    if (phone && phoneDigits.length !== 10) {
       setError("Please enter a valid 10-digit phone number");
       return;
     }
@@ -109,7 +109,7 @@ export default function NewAdminPage() {
         body: JSON.stringify({
           name,
           email,
-          phone: phoneDigits,
+          ...(phoneDigits && { phone: phoneDigits }),
           password,
           role,
         }),
@@ -198,7 +198,7 @@ export default function NewAdminPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number *</Label>
+              <Label htmlFor="phone">Phone Number (Optional)</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -208,7 +208,6 @@ export default function NewAdminPage() {
                   onChange={handlePhoneChange}
                   placeholder="(908) 555-1234"
                   className="pl-10"
-                  required
                 />
               </div>
             </div>

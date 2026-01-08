@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { eq, or, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 
 const updateAdminSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
-  phone: z.string().min(10).optional(),
+  phone: z.string().min(10).nullable().optional(),
   password: z.string().min(8).optional(),
   role: z.enum(['admin', 'super_admin']).optional(),
   isActive: z.boolean().optional(),
@@ -136,8 +136,8 @@ export async function PUT(
       }
     }
 
-    // Format phone if provided
-    let formattedPhone = validatedData.phone;
+    // Format phone if provided (can be null to clear it)
+    let formattedPhone: string | null | undefined = validatedData.phone;
     if (formattedPhone) {
       formattedPhone = formattedPhone.replace(/\D/g, '');
       if (formattedPhone.length === 10) {
@@ -184,7 +184,7 @@ export async function PUT(
       .set({
         ...(validatedData.name && { name: validatedData.name }),
         ...(validatedData.email && { email: validatedData.email }),
-        ...(formattedPhone && { phone: formattedPhone }),
+        ...(formattedPhone !== undefined && { phone: formattedPhone }),
         ...(passwordHash && { passwordHash }),
         ...(validatedData.role && { role: validatedData.role }),
         ...(validatedData.isActive !== undefined && { isActive: validatedData.isActive }),
