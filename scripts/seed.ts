@@ -15,10 +15,10 @@ async function seed() {
   const db = drizzle(sql, { schema });
 
   // Seed super admin user
-  const adminEmail = 'admin@sainthelen.org';
-  const adminPassword = 'changeme123'; // This should be changed after first login
-  const adminName = 'Super Admin';
-  const adminPhone = '+19085551234';
+  const adminEmail = 'mboyle@sainthelen.org';
+  const adminPassword = 'Mission@1600!@';
+  const adminName = 'Matthew Boyle';
+  const adminPhone = '+19084038480';
 
   console.log('Creating super admin user...');
 
