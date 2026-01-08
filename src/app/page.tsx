@@ -19,10 +19,6 @@ export default function HomePage() {
               <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
                 Saint Helen Peer Ministry
               </h1>
-              <p className="text-lg md:text-xl text-gray-200 max-w-2xl mx-auto mb-8">
-                Empowering young people to serve and lead in our faith community.
-                Access schedules, manage assignments, and stay connected.
-              </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button
                   asChild
