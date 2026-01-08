@@ -29,7 +29,7 @@ import {
 interface Admin {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   role: "admin" | "super_admin";
   isActive: boolean;
@@ -77,10 +77,11 @@ export default function AdminsPage() {
     (admin) =>
       admin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       admin.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      admin.phone.includes(searchQuery)
+      admin.phone?.includes(searchQuery)
   );
 
-  const formatPhone = (phone: string) => {
+  const formatPhone = (phone: string | null) => {
+    if (!phone) return null;
     const cleaned = phone.replace(/\D/g, "");
     if (cleaned.length === 11 && cleaned.startsWith("1")) {
       return `(${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
@@ -264,9 +265,11 @@ export default function AdminsPage() {
                             {admin.email}
                           </span>
                         )}
-                        <span className="text-gray-400">
-                          {formatPhone(admin.phone)}
-                        </span>
+                        {admin.phone && (
+                          <span className="text-gray-400">
+                            {formatPhone(admin.phone)}
+                          </span>
+                        )}
                       </div>
                     </div>
 
