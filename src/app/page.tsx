@@ -65,11 +65,6 @@ export default async function HomePage() {
                 Admin Login
               </Link>
             </Button>
-            <p className="text-center text-sm text-gray-500">
-              <Link href="/schedule" className="text-navy hover:underline">
-                View the public schedule
-              </Link>
-            </p>
           </div>
         </div>
       </main>

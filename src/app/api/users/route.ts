@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getAdminSession, forbidden, unauthorized } from '@/lib/api-auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -15,6 +15,13 @@ const createUserSchema = z.object({
 // GET /api/users - List users
 export async function GET(request: NextRequest) {
   try {
+    // Peer ministers are minors; their names and phone numbers are never
+    // public. Admins only.
+    const session = await getAdminSession();
+    if (!session) {
+      return unauthorized();
+    }
+
     const { searchParams } = new URL(request.url);
     const role = searchParams.get('role');
     const search = searchParams.get('search');
@@ -67,13 +74,19 @@ export async function GET(request: NextRequest) {
 // POST /api/users - Create user
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getAdminSession();
+    if (!session) {
+      return unauthorized();
     }
 
     const body = await request.json();
     const validatedData = createUserSchema.parse(body);
+
+    // /api/admins restricts admin creation to super admins; without the same
+    // check here that restriction is bypassable through this endpoint.
+    if (validatedData.role !== 'peer_minister' && session.user.role !== 'super_admin') {
+      return forbidden('Only Super Admins can create admin accounts');
+    }
 
     // Format phone number (remove non-digits, ensure +1 prefix)
     let formattedPhone = validatedData.phone.replace(/\D/g, '');

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getAdminSession, unauthorized } from '@/lib/api-auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -18,6 +18,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Includes phone number and full assignment history — admins only.
+    const session = await getAdminSession();
+    if (!session) {
+      return unauthorized();
+    }
+
     const { id } = await params;
 
     const user = await db.query.users.findFirst({
@@ -74,9 +80,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getAdminSession();
+    if (!session) {
+      return unauthorized();
     }
 
     const { id } = await params;
@@ -171,9 +177,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getAdminSession();
+    if (!session) {
+      return unauthorized();
     }
 
     const { id } = await params;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { hasAnySession, unauthorized } from '@/lib/api-auth';
 import { db } from '@/db';
 import { events, slots } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
@@ -28,6 +29,12 @@ const createEventSchema = z.object({
 // GET /api/events - List events
 export async function GET(request: NextRequest) {
   try {
+    // Returns assignee names alongside dates and locations, so it needs a
+    // signed-in admin or peer minister.
+    if (!(await hasAnySession())) {
+      return unauthorized();
+    }
+
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
