@@ -27,6 +27,11 @@ export interface ExtractionResult extends ExtractedOpportunity {
   /** How the fields were derived, so the UI can set expectations. */
   source: 'ai' | 'heuristic';
   warnings: string[];
+  /**
+   * The page builds itself in the browser, so the URL alone yielded nothing.
+   * The UI should ask the admin to paste the details instead.
+   */
+  needsPastedDetails?: boolean;
 }
 
 const EMPTY: ExtractedOpportunity = {
@@ -51,8 +56,14 @@ export function isSignUpGeniusUrl(rawUrl: string): boolean {
   }
 }
 
+export interface FetchedPage {
+  text: string;
+  /** From og:title — present even when the body renders client-side. */
+  title: string;
+}
+
 /** Fetch the page and reduce it to readable text. */
-export async function fetchPageText(url: string): Promise<string> {
+export async function fetchPage(url: string): Promise<FetchedPage> {
   const response = await fetch(url, {
     headers: {
       // SignUpGenius serves a stripped page to unrecognised clients.
@@ -68,7 +79,52 @@ export async function fetchPageText(url: string): Promise<string> {
     throw new Error(`SignUpGenius returned ${response.status}`);
   }
 
-  return htmlToText(await response.text());
+  const html = await response.text();
+  return { text: htmlToText(html), title: readPageTitle(html) };
+}
+
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#0?39;|&apos;|&rsquo;/g, "'")
+    .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&amp;/g, '&');
+}
+
+/**
+ * Pull a `<meta>` value by name or property.
+ *
+ * The quote character is captured and back-referenced — matching `[^"']*`
+ * would stop at the apostrophe in a title like "St. Joseph's Food Truck".
+ */
+function readMeta(html: string, key: string): string {
+  const patterns = [
+    new RegExp(
+      `<meta[^>]+(?:name|property)=["']${key}["'][^>]*content=(["'])([\\s\\S]*?)\\1`,
+      'i'
+    ),
+    new RegExp(
+      `<meta[^>]+content=(["'])([\\s\\S]*?)\\1[^>]*(?:name|property)=["']${key}["']`,
+      'i'
+    ),
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[2]) return decodeEntities(match[2]).trim();
+  }
+  return '';
+}
+
+/** The page title, which survives even when the body is rendered client-side. */
+export function readPageTitle(html: string): string {
+  const og = readMeta(html, 'og:title');
+  if (og) return og;
+  const title = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? '';
+  // "SignUpGenius" alone is the app shell's title, not the sign-up's.
+  return /^signupgenius/i.test(title) ? '' : title;
 }
 
 export function htmlToText(html: string): string {
@@ -89,19 +145,24 @@ export function htmlToText(html: string): string {
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<(br|\/p|\/div|\/li|\/tr|\/h[1-6])[^>]*>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n\s*\n\s*\n+/g, '\n\n')
     .trim();
 
-  const combined = structuredData
-    ? `${text}\n\nSTRUCTURED DATA:\n${structuredData}`
-    : text;
+  const decoded = decodeEntities(text);
+
+  // og:* tags are server-rendered even on single-page apps, so they're often
+  // the only real signal we get.
+  const meta = [
+    readPageTitle(html) && `TITLE: ${readPageTitle(html)}`,
+    readMeta(html, 'og:description') && `SUMMARY: ${readMeta(html, 'og:description')}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const combined = [meta, decoded, structuredData && `STRUCTURED DATA:\n${structuredData}`]
+    .filter(Boolean)
+    .join('\n\n');
 
   // Plenty of context for the model without paying for boilerplate.
   return combined.slice(0, 24_000);
@@ -214,22 +275,45 @@ export function extractHeuristically(
   pageText: string,
   today: string
 ): ExtractedOpportunity {
-  const title = pageText.split('\n').map((line) => line.trim()).find(
-    (line) => line.length > 3 && line.length < 90
-  );
+  const lines = pageText.split('\n').map((line) => line.trim());
+
+  // htmlToText prefixes the og:title with a marker; prefer it over guessing
+  // at the first short-looking line (which would otherwise be the marker).
+  const marked = lines.find((line) => line.startsWith('TITLE: '));
+  const title = marked
+    ? marked.slice('TITLE: '.length).trim()
+    : lines.find(
+        (line) =>
+          line.length > 3 && line.length < 90 && !line.startsWith('SUMMARY: ')
+      );
 
   const currentYear = Number(today.slice(0, 4));
-  const dateMatch = pageText.match(
+  let eventDate = '';
+
+  // "August 15, 2026" / "August 15"
+  const namedMatch = pageText.match(
     /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?/i
   );
-
-  let eventDate = '';
-  if (dateMatch) {
-    const monthIndex = MONTHS.indexOf(dateMatch[1].toLowerCase());
-    const day = Number(dateMatch[2]);
-    const year = dateMatch[3] ? Number(dateMatch[3]) : currentYear;
+  if (namedMatch) {
+    const monthIndex = MONTHS.indexOf(namedMatch[1].toLowerCase());
+    const day = Number(namedMatch[2]);
+    const year = namedMatch[3] ? Number(namedMatch[3]) : currentYear;
     if (monthIndex >= 0 && day >= 1 && day <= 31) {
       eventDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  // "08/15/2026" / "8/15/26" — how SignUpGenius prints its Date field.
+  if (!eventDate) {
+    const numericMatch = pageText.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\b/);
+    if (numericMatch) {
+      const month = Number(numericMatch[1]);
+      const day = Number(numericMatch[2]);
+      const rawYear = Number(numericMatch[3]);
+      const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        eventDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
     }
   }
 
@@ -296,20 +380,18 @@ function normalize(raw: unknown): ExtractedOpportunity {
   };
 }
 
-/** Everything glued together, with warnings the admin should see. */
-export async function importFromSignUpGenius(
+/**
+ * Run the extraction over whatever text we managed to get hold of.
+ * Shared by the URL path and the paste-the-details path.
+ */
+async function extractFrom(
+  pageText: string,
   url: string,
-  today: string
+  today: string,
+  fallbackTitle = '',
+  isPaste = false
 ): Promise<ExtractionResult> {
-  const pageText = await fetchPageText(url);
   const warnings: string[] = [];
-
-  if (pageText.length < 200) {
-    warnings.push(
-      "This sign-up page returned very little text — it may be private or require a login. Double-check the details below."
-    );
-  }
-
   let extracted: ExtractedOpportunity;
   let source: ExtractionResult['source'] = 'ai';
 
@@ -317,7 +399,7 @@ export async function importFromSignUpGenius(
     extracted = extractHeuristically(pageText, today);
     source = 'heuristic';
     warnings.push(
-      'Automatic detail extraction is not configured, so these fields were guessed from the page text. Please review them.'
+      'Automatic detail extraction is not configured, so these fields were guessed from the text. Please review them.'
     );
   } else {
     try {
@@ -327,16 +409,30 @@ export async function importFromSignUpGenius(
       extracted = extractHeuristically(pageText, today);
       source = 'heuristic';
       warnings.push(
-        "Couldn't read the page automatically, so these fields were guessed. Please review them."
+        "Couldn't read the details automatically, so these fields were guessed. Please review them."
       );
     }
   }
 
-  if (!extracted.eventDate) {
-    warnings.push('No date was found on the page — please enter one.');
+  if (!extracted.title && fallbackTitle) {
+    extracted = { ...extracted, title: fallbackTitle };
   }
-  if (!extracted.startTime) {
-    warnings.push('No start time was found on the page — please enter one.');
+
+  // SignUpGenius renders its sign-up pages in the browser, so a fetch only
+  // sees the summary tags. When those don't carry a date or time, the reliable
+  // move is to let the admin paste the page rather than guess.
+  const needsPastedDetails = !extracted.eventDate || !extracted.startTime;
+  if (needsPastedDetails && !isPaste) {
+    warnings.push(
+      "Some details weren't in the page's summary — paste the sign-up text below, or fill them in by hand."
+    );
+  } else {
+    if (!extracted.eventDate) {
+      warnings.push('No date was found — please enter one.');
+    }
+    if (!extracted.startTime) {
+      warnings.push('No start time was found — please enter one.');
+    }
   }
   if (extracted.additionalDates.length > 0) {
     warnings.push(
@@ -344,5 +440,30 @@ export async function importFromSignUpGenius(
     );
   }
 
-  return { ...extracted, source, warnings };
+  return { ...extracted, source, warnings, needsPastedDetails };
+}
+
+/**
+ * Import from a URL.
+ *
+ * SignUpGenius renders its sign-up pages in the browser, so a plain fetch sees
+ * only the og:title and og:description tags. Those usually carry the title and
+ * the descriptive text (often including the date and time in prose), which is
+ * enough. When it isn't, the result asks the caller to collect a paste.
+ */
+export async function importFromSignUpGenius(
+  url: string,
+  today: string
+): Promise<ExtractionResult> {
+  const page = await fetchPage(url);
+  return extractFrom(page.text, url, today, page.title);
+}
+
+/** Import from text the admin copied off the sign-up page. */
+export async function importFromPastedText(
+  pastedText: string,
+  url: string,
+  today: string
+): Promise<ExtractionResult> {
+  return extractFrom(pastedText, url, today, '', true);
 }

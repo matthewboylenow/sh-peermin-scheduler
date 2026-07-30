@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth';
-import { importFromSignUpGenius, isSignUpGeniusUrl } from '@/lib/signupgenius';
+import {
+  importFromPastedText,
+  importFromSignUpGenius,
+  isSignUpGeniusUrl,
+} from '@/lib/signupgenius';
 import { todayInEastern } from '@/lib/datetime';
 
 // Fetching the page and running the extraction can take a few seconds.
@@ -9,6 +13,12 @@ export const maxDuration = 60;
 
 const importSchema = z.object({
   url: z.string().url('Enter a valid URL'),
+  /**
+   * Text the admin copied off the sign-up page. SignUpGenius renders its
+   * pages in the browser, so for those this is the only way to see the
+   * date and time.
+   */
+  pastedText: z.string().max(50_000).optional(),
 });
 
 /**
@@ -26,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { url } = importSchema.parse(body);
+    const { url, pastedText } = importSchema.parse(body);
 
     if (!isSignUpGeniusUrl(url)) {
       return NextResponse.json(
@@ -35,7 +45,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await importFromSignUpGenius(url, todayInEastern());
+    const trimmed = pastedText?.trim();
+    const result = trimmed
+      ? await importFromPastedText(trimmed, url, todayInEastern())
+      : await importFromSignUpGenius(url, todayInEastern());
 
     return NextResponse.json({ ...result, signupUrl: url });
   } catch (error) {
