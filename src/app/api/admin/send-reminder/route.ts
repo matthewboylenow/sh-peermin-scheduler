@@ -4,25 +4,11 @@ import { db } from '@/db';
 import { assignments, smsLog, smsSettings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendSMS } from '@/lib/twilio';
-import { format, parseISO } from 'date-fns';
+import { formatEventDate, formatTime } from '@/lib/datetime';
 import { z } from 'zod';
 
 // Default message template
 const DEFAULT_MESSAGE_TEMPLATE = 'Hi {name}! Reminder: You\'re scheduled for "{role}" at {event} on {date} at {time} at {location}. Thank you for serving! - Saint Helen Parish';
-
-// Format time from 24h to 12h format
-function formatTime(time: string): string {
-  const [hours, minutes] = time.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-}
-
-// Format date to readable format
-function formatDate(dateStr: string): string {
-  const date = parseISO(dateStr);
-  return format(date, 'MMMM d, yyyy');
-}
 
 // Replace placeholders in template with actual values
 function renderTemplate(
@@ -100,7 +86,7 @@ export async function POST(request: NextRequest) {
         name: user.name,
         role: slot.name,
         event: slot.event.title,
-        date: formatDate(slot.event.eventDate),
+        date: formatEventDate(slot.event.eventDate),
         time: formatTime(slot.event.startTime),
         location: slot.event.location || '',
       });

@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
+import { formatEventDate, formatTimeRange } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,7 @@ import {
   X,
   Search,
   AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 
 interface Assignment {
@@ -63,6 +64,7 @@ interface Event {
   startTime: string;
   endTime: string | null;
   location: string | null;
+  signupUrl: string | null;
   recurrenceType: string;
   slots: Slot[];
   creator: {
@@ -307,8 +309,8 @@ export default function EventDetailPage({
 
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="font-heading text-3xl font-bold text-navy">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
                 {event.title}
               </h1>
               <Badge className={eventTypeColors[event.eventType] || ""}>
@@ -356,7 +358,7 @@ export default function EventDetailPage({
               <div>
                 <p className="text-sm text-gray-500">Date</p>
                 <p className="font-medium">
-                  {format(parseISO(event.eventDate), "EEEE, MMMM d, yyyy")}
+                  {formatEventDate(event.eventDate, "long")}
                 </p>
               </div>
             </div>
@@ -372,8 +374,7 @@ export default function EventDetailPage({
               <div>
                 <p className="text-sm text-gray-500">Time</p>
                 <p className="font-medium">
-                  {event.startTime}
-                  {event.endTime && ` - ${event.endTime}`}
+                  {formatTimeRange(event.startTime, event.endTime)}
                 </p>
               </div>
             </div>
@@ -394,6 +395,33 @@ export default function EventDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {event.signupUrl && (
+        <Card className="border-rust/30 bg-rust/5">
+          <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm text-gray-500">Volunteer Sign-Up</p>
+              <p className="truncate font-medium text-gray-900">
+                {event.signupUrl}
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Peer ministers see this under Volunteer Opportunities and sign
+                up on the organizer&apos;s page.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="flex-shrink-0">
+              <a
+                href={event.signupUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Staffing Overview */}
       <Card>
@@ -560,7 +588,7 @@ export default function EventDetailPage({
                     href={`/admin/events/${child.id}`}
                     className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors"
                   >
-                    {format(parseISO(child.eventDate), "MMM d")}
+                    {formatEventDate(child.eventDate, "short")}
                   </Link>
                 ))}
                 {event.childEvents.length > 10 && (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { format, parseISO, isToday, isTomorrow } from "date-fns";
+import { formatTimeRange, relativeEventDate } from "@/lib/datetime";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,12 +71,7 @@ export default function PublicSchedulePage() {
     }
   };
 
-  const getDateLabel = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (isToday(date)) return "Today";
-    if (isTomorrow(date)) return "Tomorrow";
-    return format(date, "EEEE, MMM d");
-  };
+  const getDateLabel = relativeEventDate;
 
   const toggleEventExpanded = (eventId: string) => {
     setExpandedEvents(prev => {
@@ -116,7 +111,7 @@ export default function PublicSchedulePage() {
                 priority
               />
             </Link>
-            <Link href="/login">
+            <Link href="/">
               <Button variant="outline" size="sm">
                 Peer Minister Login
               </Button>
@@ -129,7 +124,7 @@ export default function PublicSchedulePage() {
         <div className="space-y-6">
           {/* Page Header */}
           <div>
-            <h1 className="font-heading text-3xl font-bold text-navy">
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
               Ministry Schedule
             </h1>
             <p className="text-gray-600 mt-1">
@@ -199,8 +194,10 @@ export default function PublicSchedulePage() {
                                 <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-600">
                                   <span className="flex items-center gap-1">
                                     <Clock className="h-4 w-4" />
-                                    {event.startTime}
-                                    {event.endTime && ` - ${event.endTime}`}
+                                    {formatTimeRange(
+                                      event.startTime,
+                                      event.endTime
+                                    )}
                                   </span>
                                   {event.location && (
                                     <span className="flex items-center gap-1">

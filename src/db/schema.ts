@@ -32,6 +32,10 @@ export const events = pgTable('events', {
   startTime: time('start_time').notNull(),
   endTime: time('end_time'),
   location: text('location'),
+  // Volunteer sign-up (e.g. a SignUpGenius page). When present, the event is
+  // surfaced to peer ministers as a self-serve volunteer opportunity.
+  signupUrl: text('signup_url'),
+  signupSource: text('signup_source'), // 'signupgenius' | 'manual' | null
   // Recurrence fields
   recurrenceType: recurrenceTypeEnum('recurrence_type').notNull().default('none'),
   recurrenceEndDate: date('recurrence_end_date'), // When recurrence stops

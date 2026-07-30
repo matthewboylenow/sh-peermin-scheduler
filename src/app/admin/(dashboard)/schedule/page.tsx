@@ -15,6 +15,7 @@ import {
   isSameDay,
   isToday,
 } from "date-fns";
+import { formatTimeRange } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -158,7 +159,9 @@ export default function SchedulePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-navy">Schedule</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
+            Schedule
+          </h1>
           <p className="text-gray-500 mt-1">View and manage the event calendar</p>
         </div>
         <Button onClick={goToToday} variant="outline">
@@ -226,7 +229,7 @@ export default function SchedulePage() {
                         key={index}
                         onClick={() => setSelectedDate(day)}
                         className={`
-                          min-h-24 p-1 text-left border rounded-lg transition-colors
+                          min-h-16 sm:min-h-24 p-0.5 sm:p-1 text-left border rounded-lg transition-colors
                           ${!isCurrentMonth ? "bg-gray-50 text-gray-400" : "bg-white"}
                           ${isSelected ? "border-navy ring-2 ring-navy/20" : "border-gray-200"}
                           ${!isSelected && isCurrentMonth ? "hover:border-gray-300" : ""}
@@ -234,7 +237,7 @@ export default function SchedulePage() {
                       >
                         <div
                           className={`
-                            text-sm font-medium mb-1 w-7 h-7 flex items-center justify-center rounded-full
+                            text-xs sm:text-sm font-medium mb-0.5 sm:mb-1 w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full
                             ${isDayToday ? "bg-navy text-white" : ""}
                           `}
                         >
@@ -247,7 +250,7 @@ export default function SchedulePage() {
                             <div
                               key={event.id}
                               className={`
-                                text-xs px-1.5 py-0.5 rounded truncate text-white
+                                text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded truncate text-white
                                 ${eventTypeColors[event.eventType]}
                               `}
                               title={event.title}
@@ -318,8 +321,7 @@ export default function SchedulePage() {
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
                             <span>
-                              {event.startTime}
-                              {event.endTime && ` - ${event.endTime}`}
+                              {formatTimeRange(event.startTime, event.endTime)}
                             </span>
                           </div>
                           {event.location && (

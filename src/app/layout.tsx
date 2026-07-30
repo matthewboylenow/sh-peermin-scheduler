@@ -1,5 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Most peer ministers are on iPhones; let the app paint under the notch and
+  // keep pinch-zoom available for anyone who needs it.
+  viewportFit: "cover",
+  themeColor: "#1F346D",
+};
 
 export const metadata: Metadata = {
   title: {

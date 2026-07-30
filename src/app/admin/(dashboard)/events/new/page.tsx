@@ -15,7 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Link2, Plus, Trash2 } from "lucide-react";
+import {
+  SignUpGeniusImport,
+  type ImportedOpportunity,
+} from "@/components/events/SignUpGeniusImport";
+import { formatTimeRange } from "@/lib/datetime";
 
 interface SlotInput {
   name: string;
@@ -36,11 +41,28 @@ export default function NewEventPage() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
+  const [signupUrl, setSignupUrl] = useState("");
+  const [signupSource, setSignupSource] = useState<"signupgenius" | "manual">(
+    "manual"
+  );
   const [recurrenceType, setRecurrenceType] = useState("none");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
   const [slots, setSlots] = useState<SlotInput[]>([
     { name: "", capacity: 1, notes: "" },
   ]);
+
+  /** Fill the form from a scraped SignUpGenius page, leaving blanks alone. */
+  const applyImport = (result: ImportedOpportunity) => {
+    if (result.title) setTitle(result.title);
+    if (result.description) setDescription(result.description);
+    if (result.eventDate) setEventDate(result.eventDate);
+    if (result.startTime) setStartTime(result.startTime);
+    if (result.endTime) setEndTime(result.endTime);
+    if (result.location) setLocation(result.location);
+    setSignupUrl(result.signupUrl);
+    setSignupSource("signupgenius");
+    setEventType("volunteer");
+  };
 
   const addSlot = () => {
     setSlots([...slots, { name: "", capacity: 1, notes: "" }]);
@@ -75,6 +97,8 @@ export default function NewEventPage() {
           startTime,
           endTime: endTime || undefined,
           location: location || undefined,
+          signupUrl: signupUrl || undefined,
+          signupSource: signupUrl ? signupSource : undefined,
           recurrenceType,
           recurrenceEndDate: recurrenceType !== "none" ? recurrenceEndDate : undefined,
           slots: validSlots.length > 0 ? validSlots : undefined,
@@ -106,9 +130,13 @@ export default function NewEventPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Events
         </Link>
-        <h1 className="font-heading text-3xl font-bold text-navy">Create Event</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
+          Create Event
+        </h1>
         <p className="text-gray-500 mt-1">Add a new event to the schedule</p>
       </div>
+
+      <SignUpGeniusImport onImported={applyImport} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
@@ -173,6 +201,33 @@ export default function NewEventPage() {
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="signupUrl">Volunteer Sign-Up Link</Label>
+              <div className="relative">
+                <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="signupUrl"
+                  type="url"
+                  inputMode="url"
+                  value={signupUrl}
+                  onChange={(e) => {
+                    setSignupUrl(e.target.value);
+                    setSignupSource(
+                      e.target.value.includes("signupgenius.com")
+                        ? "signupgenius"
+                        : "manual"
+                    );
+                  }}
+                  placeholder="https://www.signupgenius.com/go/..."
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                Optional. When set, this event appears under Volunteer
+                Opportunities so peer ministers can sign up themselves.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -216,6 +271,16 @@ export default function NewEventPage() {
                 />
               </div>
             </div>
+
+            {startTime && (
+              <p className="text-sm text-gray-500">
+                Peer ministers will see{" "}
+                <span className="font-medium text-gray-700">
+                  {formatTimeRange(startTime, endTime)} ET
+                </span>
+                .
+              </p>
+            )}
           </CardContent>
         </Card>
 

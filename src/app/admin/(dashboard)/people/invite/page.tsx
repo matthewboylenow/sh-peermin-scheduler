@@ -21,7 +21,7 @@ import {
   Clock,
   Send,
 } from "lucide-react";
-import { format } from "date-fns";
+import { formatTimestamp, formatTimestampWithTime } from "@/lib/datetime";
 
 interface InviteLink {
   inviteUrl: string;
@@ -74,7 +74,7 @@ export default function InvitePage() {
 
     const subject = encodeURIComponent("Join Saint Helen Peer Ministry");
     const body = encodeURIComponent(
-      `You've been invited to join the Saint Helen Peer Ministry scheduling system!\n\nClick the link below to register:\n${inviteLink.inviteUrl}\n\nThis link expires on ${format(new Date(inviteLink.expiresAt), "MMMM d, yyyy")}.`
+      `You've been invited to join the Saint Helen Peer Ministry scheduling system!\n\nClick the link below to register:\n${inviteLink.inviteUrl}\n\nThis link expires on ${formatTimestamp(inviteLink.expiresAt, "medium")}.`
     );
     window.open(`mailto:?subject=${subject}&body=${body}`);
   };
@@ -99,7 +99,7 @@ export default function InvitePage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Peer Ministers
         </Link>
-        <h1 className="font-heading text-3xl font-bold text-navy">
+        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
           Invite Link
         </h1>
         <p className="text-gray-500 mt-1">
@@ -187,7 +187,7 @@ export default function InvitePage() {
             </CardTitle>
             <CardDescription className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              Expires {format(new Date(inviteLink.expiresAt), "MMMM d, yyyy 'at' h:mm a")}
+              Expires {formatTimestampWithTime(inviteLink.expiresAt)}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

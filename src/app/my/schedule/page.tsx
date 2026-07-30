@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { format, parseISO, isToday, isTomorrow } from "date-fns";
+import {
+  formatEventDate,
+  formatTimeRange,
+  relativeEventDate,
+  todayInEastern,
+} from "@/lib/datetime";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -63,8 +68,8 @@ export default function MySchedulePage() {
     }
   };
 
-  // Filter and sort assignments
-  const today = new Date().toISOString().split("T")[0];
+  // Filter and sort assignments (Eastern Time — the parish's local day)
+  const today = todayInEastern();
   const upcomingAssignments = assignments
     .filter((a) => a.slot.event.eventDate >= today)
     .sort((a, b) =>
@@ -80,12 +85,7 @@ export default function MySchedulePage() {
   // Get next assignment
   const nextAssignment = upcomingAssignments[0];
 
-  const getDateLabel = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (isToday(date)) return "Today";
-    if (isTomorrow(date)) return "Tomorrow";
-    return format(date, "EEEE, MMM d");
-  };
+  const getDateLabel = relativeEventDate;
 
   if (isLoading) {
     return (
@@ -110,23 +110,30 @@ export default function MySchedulePage() {
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-navy" />
               <CardTitle className="text-lg text-navy">
-                {isToday(parseISO(nextAssignment.slot.event.eventDate))
+                {nextAssignment.slot.event.eventDate === today
                   ? "Coming Up Today"
-                  : isTomorrow(parseISO(nextAssignment.slot.event.eventDate))
-                    ? "Tomorrow"
-                    : "Next Assignment"}
+                  : "Next Assignment"}
               </CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 sm:gap-4">
               <div
-                className={`w-1.5 h-full min-h-16 rounded-full ${eventTypeColors[nextAssignment.slot.event.eventType]}`}
+                className={`w-1.5 self-stretch min-h-16 flex-shrink-0 rounded-full ${eventTypeColors[nextAssignment.slot.event.eventType]}`}
               />
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg text-gray-900">
-                  {nextAssignment.slot.event.title}
-                </h3>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h3 className="font-semibold text-lg text-gray-900">
+                    {nextAssignment.slot.event.title}
+                  </h3>
+                  <Badge
+                    className={
+                      eventTypeColors[nextAssignment.slot.event.eventType]
+                    }
+                  >
+                    {eventTypeLabels[nextAssignment.slot.event.eventType]}
+                  </Badge>
+                </div>
                 <p className="text-navy font-medium">
                   {nextAssignment.slot.name}
                 </p>
@@ -137,9 +144,10 @@ export default function MySchedulePage() {
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
-                    {nextAssignment.slot.event.startTime}
-                    {nextAssignment.slot.event.endTime &&
-                      ` - ${nextAssignment.slot.event.endTime}`}
+                    {formatTimeRange(
+                      nextAssignment.slot.event.startTime,
+                      nextAssignment.slot.event.endTime
+                    )}
                   </span>
                   {nextAssignment.slot.event.location && (
                     <span className="flex items-center gap-1">
@@ -149,9 +157,6 @@ export default function MySchedulePage() {
                   )}
                 </div>
               </div>
-              <Badge className={eventTypeColors[nextAssignment.slot.event.eventType]}>
-                {eventTypeLabels[nextAssignment.slot.event.eventType]}
-              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -179,15 +184,15 @@ export default function MySchedulePage() {
               {upcomingAssignments.map((assignment, index) => (
                 <div
                   key={assignment.id}
-                  className={`flex items-center gap-4 p-4 rounded-lg border border-gray-200 ${
+                  className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border border-gray-200 ${
                     index === 0 ? "bg-gray-50" : ""
                   }`}
                 >
                   <div
-                    className={`w-1 h-14 rounded-full ${eventTypeColors[assignment.slot.event.eventType]}`}
+                    className={`w-1 h-14 flex-shrink-0 rounded-full ${eventTypeColors[assignment.slot.event.eventType]}`}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h4 className="font-medium text-gray-900">
                         {assignment.slot.event.title}
                       </h4>
@@ -197,7 +202,12 @@ export default function MySchedulePage() {
                     </div>
                     <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-500">
                       <span>{getDateLabel(assignment.slot.event.eventDate)}</span>
-                      <span>{assignment.slot.event.startTime}</span>
+                      <span>
+                        {formatTimeRange(
+                          assignment.slot.event.startTime,
+                          assignment.slot.event.endTime
+                        )}
+                      </span>
                       {assignment.slot.event.location && (
                         <span>{assignment.slot.event.location}</span>
                       )}
@@ -235,10 +245,7 @@ export default function MySchedulePage() {
                     </p>
                     <p className="text-sm text-gray-400">
                       {assignment.slot.name} •{" "}
-                      {format(
-                        parseISO(assignment.slot.event.eventDate),
-                        "MMM d, yyyy"
-                      )}
+                      {formatEventDate(assignment.slot.event.eventDate)}
                     </p>
                   </div>
                 </div>

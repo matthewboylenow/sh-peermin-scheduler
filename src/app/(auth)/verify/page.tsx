@@ -32,7 +32,7 @@ function VerifyPageContent() {
   // Redirect if no phone
   useEffect(() => {
     if (!phone) {
-      router.push("/login");
+      router.push("/");
     }
   }, [phone, router]);
 
@@ -234,7 +234,7 @@ function VerifyPageContent() {
 
         <div className="mt-6 text-center">
           <Link
-            href="/login"
+            href="/"
             className="inline-flex items-center text-sm text-gray-500 hover:text-navy"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />

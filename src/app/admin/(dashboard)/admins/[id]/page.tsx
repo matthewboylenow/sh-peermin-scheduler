@@ -4,7 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
+import { formatTimestamp } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -282,7 +282,7 @@ export default function AdminDetailPage({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-heading text-3xl font-bold text-navy">
+                <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
                   {admin.name}
                 </h1>
                 <Badge
@@ -298,7 +298,7 @@ export default function AdminDetailPage({
                 )}
               </div>
               <p className="text-gray-500">
-                Member since {format(parseISO(admin.createdAt), "MMMM yyyy")}
+                Member since {formatTimestamp(admin.createdAt, "medium")}
               </p>
             </div>
           </div>

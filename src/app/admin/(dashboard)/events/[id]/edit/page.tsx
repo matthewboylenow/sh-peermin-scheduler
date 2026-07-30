@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Link2 } from "lucide-react";
+import { formatTimeRange } from "@/lib/datetime";
 
 interface Event {
   id: string;
@@ -32,6 +33,7 @@ interface Event {
   startTime: string;
   endTime: string | null;
   location: string | null;
+  signupUrl: string | null;
   recurrenceType: string;
   parentEventId: string | null;
   childEvents?: { id: string }[];
@@ -58,6 +60,7 @@ export default function EditEventPage({
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
+  const [signupUrl, setSignupUrl] = useState("");
 
   useEffect(() => {
     fetchEvent();
@@ -76,6 +79,7 @@ export default function EditEventPage({
         setStartTime(data.startTime);
         setEndTime(data.endTime || "");
         setLocation(data.location || "");
+        setSignupUrl(data.signupUrl || "");
         setHasChildEvents(
           data.recurrenceType !== "none" &&
             !!data.childEvents &&
@@ -109,6 +113,10 @@ export default function EditEventPage({
           startTime,
           endTime: endTime || null,
           location: location || null,
+          signupUrl: signupUrl || "",
+          signupSource: signupUrl.includes("signupgenius.com")
+            ? "signupgenius"
+            : "manual",
           updateFutureInstances,
         }),
       });
@@ -145,7 +153,9 @@ export default function EditEventPage({
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Event
         </Link>
-        <h1 className="font-heading text-3xl font-bold text-navy">Edit Event</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
+          Edit Event
+        </h1>
         <p className="text-gray-500 mt-1">Update event details</p>
       </div>
 
@@ -212,6 +222,26 @@ export default function EditEventPage({
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="signupUrl">Volunteer Sign-Up Link</Label>
+              <div className="relative">
+                <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="signupUrl"
+                  type="url"
+                  inputMode="url"
+                  value={signupUrl}
+                  onChange={(e) => setSignupUrl(e.target.value)}
+                  placeholder="https://www.signupgenius.com/go/..."
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                Optional. When set, this event appears under Volunteer
+                Opportunities so peer ministers can sign up themselves.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -255,6 +285,16 @@ export default function EditEventPage({
                 />
               </div>
             </div>
+
+            {startTime && (
+              <p className="text-sm text-gray-500">
+                Peer ministers will see{" "}
+                <span className="font-medium text-gray-700">
+                  {formatTimeRange(startTime, endTime)} ET
+                </span>
+                .
+              </p>
+            )}
           </CardContent>
         </Card>
 

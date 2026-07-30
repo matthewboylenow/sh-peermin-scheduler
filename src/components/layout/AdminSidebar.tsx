@@ -14,6 +14,7 @@ import {
   Settings,
   UserCog,
   LogOut,
+  X,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -31,14 +32,25 @@ const adminNavigation = [
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  /** Drawer state on screens narrower than `lg`. */
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function AdminSidebar({ isOpen = false, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-navy">
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-40 w-64 bg-navy transition-transform duration-200 lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex h-16 items-center px-6 border-b border-navy-light">
+        <div className="flex h-16 items-center justify-between px-6 border-b border-navy-light">
           <Link href="/admin" className="flex items-center">
             <Image
               src="/saint-helen-logo.png"
@@ -49,6 +61,14 @@ export function AdminSidebar() {
               priority
             />
           </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="-mr-2 p-2 text-gray-300 hover:text-white lg:hidden"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Navigation */}

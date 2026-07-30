@@ -14,6 +14,8 @@ const createEventSchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format'),
   endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   location: z.string().optional(),
+  signupUrl: z.string().url().optional().or(z.literal('')),
+  signupSource: z.enum(['signupgenius', 'manual']).optional(),
   recurrenceType: z.enum(['none', 'daily', 'weekly', 'biweekly', 'monthly']).default('none'),
   recurrenceEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   slots: z.array(z.object({
@@ -86,7 +88,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createEventSchema.parse(body);
 
-    const { slots: eventSlots, recurrenceType, recurrenceEndDate, ...eventData } = validatedData;
+    const { slots: eventSlots, recurrenceType, recurrenceEndDate, ...rest } = validatedData;
+
+    // An empty sign-up URL means "no opportunity link", not an empty string.
+    const eventData = {
+      ...rest,
+      signupUrl: rest.signupUrl || null,
+      signupSource: rest.signupUrl ? rest.signupSource || 'manual' : null,
+    };
 
     // Generate recurring event dates
     const eventDates: string[] = [eventData.eventDate];

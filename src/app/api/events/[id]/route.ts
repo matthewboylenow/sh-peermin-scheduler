@@ -13,6 +13,8 @@ const updateEventSchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   endTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
   location: z.string().optional().nullable(),
+  signupUrl: z.string().url().nullable().optional().or(z.literal('')),
+  signupSource: z.enum(['signupgenius', 'manual']).nullable().optional(),
   updateFutureInstances: z.boolean().optional(),
 });
 
@@ -86,7 +88,19 @@ export async function PUT(
     const body = await request.json();
     const validatedData = updateEventSchema.parse(body);
 
-    const { updateFutureInstances, ...updateData } = validatedData;
+    const { updateFutureInstances, ...rest } = validatedData;
+
+    const updateData = {
+      ...rest,
+      ...(rest.signupUrl !== undefined
+        ? {
+            signupUrl: rest.signupUrl || null,
+            signupSource: rest.signupUrl
+              ? rest.signupSource || 'manual'
+              : null,
+          }
+        : {}),
+    };
 
     // Update the event
     const [updatedEvent] = await db.update(events)
@@ -116,6 +130,8 @@ export async function PUT(
             startTime: updateData.startTime,
             endTime: updateData.endTime,
             location: updateData.location,
+            signupUrl: updateData.signupUrl,
+            signupSource: updateData.signupSource,
             updatedAt: new Date(),
           })
           .where(eq(events.id, child.id));

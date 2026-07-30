@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getPeerSession } from "@/lib/peer-session";
-import { PeerHeader } from "@/components/layout/PeerHeader";
+import { PeerHeader, PeerTabBar } from "@/components/layout/PeerHeader";
 
 export default async function MyLayout({
   children,
@@ -10,15 +10,17 @@ export default async function MyLayout({
   const session = await getPeerSession();
 
   if (!session) {
-    redirect("/login");
+    redirect("/");
   }
 
   return (
     <div className="min-h-screen bg-cream">
       <PeerHeader userName={session.name} />
-      <main className="container mx-auto px-4 py-6 max-w-4xl">
+      {/* Bottom padding keeps content clear of the mobile tab bar. */}
+      <main className="container mx-auto max-w-4xl px-4 py-6 pb-28 md:pb-10">
         {children}
       </main>
+      <PeerTabBar />
     </div>
   );
 }

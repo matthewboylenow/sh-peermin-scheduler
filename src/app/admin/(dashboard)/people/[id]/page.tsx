@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
+import { formatEventDate, formatTime, formatTimestamp } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -258,7 +258,7 @@ export default function PersonDetailPage({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-heading text-3xl font-bold text-navy">
+                <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
                   {person.name}
                 </h1>
                 <Badge variant={person.isActive ? "default" : "secondary"}>
@@ -266,7 +266,7 @@ export default function PersonDetailPage({
                 </Badge>
               </div>
               <p className="text-gray-500">
-                Member since {format(parseISO(person.createdAt), "MMMM yyyy")}
+                Member since {formatTimestamp(person.createdAt, "medium")}
               </p>
             </div>
           </div>
@@ -427,13 +427,13 @@ export default function PersonDetailPage({
                       </div>
                       <div className="text-right text-sm">
                         <p className="font-medium text-navy">
-                          {format(
-                            parseISO(assignment.slot.event.eventDate),
-                            "MMM d"
+                          {formatEventDate(
+                            assignment.slot.event.eventDate,
+                            "short"
                           )}
                         </p>
                         <p className="text-gray-500">
-                          {assignment.slot.event.startTime}
+                          {formatTime(assignment.slot.event.startTime)}
                         </p>
                       </div>
                     </Link>
@@ -480,9 +480,8 @@ export default function PersonDetailPage({
                       </div>
                       <div className="text-right text-sm">
                         <p className="text-gray-500">
-                          {format(
-                            parseISO(assignment.slot.event.eventDate),
-                            "MMM d, yyyy"
+                          {formatEventDate(
+                            assignment.slot.event.eventDate
                           )}
                         </p>
                       </div>

@@ -45,7 +45,7 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-navy to-navy-dark flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-navy to-navy-dark flex items-center justify-center p-4 py-10">
       <Container size="sm">
         <div className="mb-6">
           <Link
@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
             className="inline-flex items-center text-sm text-gray-300 hover:text-white transition-colors"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to home
+            Back to sign in
           </Link>
         </div>
 
@@ -130,7 +130,7 @@ export default function AdminLoginPage() {
               <p className="text-sm text-gray-500">
                 Not an admin?{" "}
                 <Link
-                  href="/login"
+                  href="/"
                   className="text-navy hover:underline font-medium"
                 >
                   Peer Minister Login

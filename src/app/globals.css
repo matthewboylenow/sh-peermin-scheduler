@@ -81,6 +81,34 @@ body {
   line-height: 1.6;
   color: var(--gray-800);
   background: var(--background);
+  /* Nothing in this app is wider than the viewport; if something is, scroll
+     it inside its own container rather than shifting the whole page. */
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* iOS zooms the page when a focused input's font-size is under 16px. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+@media (min-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: inherit;
+  }
+}
+
+/* Give touch targets a comfortable minimum on phones. */
+@media (max-width: 639px) {
+  button,
+  [role="button"],
+  a[href] {
+    -webkit-tap-highlight-color: rgba(31, 52, 109, 0.1);
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {

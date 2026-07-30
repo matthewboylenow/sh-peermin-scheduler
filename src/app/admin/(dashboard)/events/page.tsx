@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
+import { eventDateParts, formatTimeRange } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import {
   MapPin,
   Users,
   ChevronRight,
+  Link2,
 } from "lucide-react";
 
 interface Slot {
@@ -41,6 +42,7 @@ interface Event {
   startTime: string;
   endTime: string | null;
   location: string | null;
+  signupUrl: string | null;
   slots: Slot[];
 }
 
@@ -106,7 +108,9 @@ export default function EventsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold text-navy">Events</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
+            Events
+          </h1>
           <p className="text-gray-500 mt-1">
             Manage events and assign peer ministers
           </p>
@@ -189,19 +193,19 @@ export default function EventsPage() {
                     {/* Date Badge */}
                     <div className="flex-shrink-0 w-16 text-center mr-4 sm:mr-6">
                       <div className="text-sm font-medium text-gray-500 uppercase">
-                        {format(parseISO(event.eventDate), "MMM")}
+                        {eventDateParts(event.eventDate).month}
                       </div>
                       <div className="text-2xl font-bold text-navy">
-                        {format(parseISO(event.eventDate), "d")}
+                        {eventDateParts(event.eventDate).day}
                       </div>
                       <div className="text-xs text-gray-400">
-                        {format(parseISO(event.eventDate), "EEE")}
+                        {eventDateParts(event.eventDate).weekday}
                       </div>
                     </div>
 
                     {/* Event Details */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="text-lg font-semibold text-gray-900 truncate">
                           {event.title}
                         </h3>
@@ -210,13 +214,18 @@ export default function EventsPage() {
                         >
                           {eventTypeLabels[event.eventType] || event.eventType}
                         </Badge>
+                        {event.signupUrl && (
+                          <Badge variant="secondary" className="gap-1">
+                            <Link2 className="h-3 w-3" />
+                            Sign-up
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                         <span className="flex items-center">
                           <Clock className="mr-1 h-4 w-4" />
-                          {event.startTime}
-                          {event.endTime && ` - ${event.endTime}`}
+                          {formatTimeRange(event.startTime, event.endTime)}
                         </span>
                         {event.location && (
                           <span className="flex items-center">

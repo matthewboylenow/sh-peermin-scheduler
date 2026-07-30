@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const folderId = searchParams.get('folderId');
+    const recentLimit = Number(searchParams.get('recent'));
 
     // Check for admin or peer session
     const adminSession = await auth();
@@ -17,6 +18,28 @@ export async function GET(request: NextRequest) {
 
     if (!adminSession?.user?.id && !peerSession) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Dashboard shortcut: newest uploads across every folder, plus the
+    // top-level folders so peer ministers can jump straight in.
+    if (Number.isFinite(recentLimit) && recentLimit > 0) {
+      const [recentFiles, topLevelFolders] = await Promise.all([
+        db.query.files.findMany({
+          orderBy: [desc(files.createdAt)],
+          limit: Math.min(recentLimit, 50),
+          with: { folder: { columns: { id: true, name: true } } },
+        }),
+        db.query.folders.findMany({
+          where: isNull(folders.parentId),
+          orderBy: [folders.name],
+        }),
+      ]);
+
+      return NextResponse.json({
+        files: recentFiles,
+        folders: topLevelFolders,
+        breadcrumbs: [{ id: null, name: 'Files' }],
+      });
     }
 
     // Get folders at this level

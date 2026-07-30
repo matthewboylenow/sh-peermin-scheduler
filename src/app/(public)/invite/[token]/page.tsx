@@ -165,7 +165,7 @@ export default function InviteAcceptPage({
             </p>
             <div className="space-y-3">
               <Button asChild className="w-full">
-                <Link href="/login">Log In Now</Link>
+                <Link href="/">Log In Now</Link>
               </Button>
               <Button asChild variant="outline" className="w-full">
                 <Link href="/">Go to Homepage</Link>
@@ -257,7 +257,7 @@ export default function InviteAcceptPage({
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-navy hover:underline">
+          <Link href="/" className="text-navy hover:underline">
             Log in here
           </Link>
         </p>
