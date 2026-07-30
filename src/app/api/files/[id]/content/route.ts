@@ -6,6 +6,10 @@ import { eq } from 'drizzle-orm';
 import { getPeerSession } from '@/lib/peer-session';
 import { isViewableInBrowser } from '@/lib/file-kinds';
 
+// Large PDFs stream through this function, and the function stays alive for as
+// long as the client is pulling bytes — a phone on slow cellular needs room.
+export const maxDuration = 60;
+
 /**
  * Streams a stored file through our own origin.
  *

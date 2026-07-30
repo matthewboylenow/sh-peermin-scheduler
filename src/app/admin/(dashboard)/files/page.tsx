@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FolderPlus, Pencil, Trash2, Upload } from "lucide-react";
+import { upload } from "@vercel/blob/client";
+import { AlertTriangle, FolderPlus, Pencil, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,21 @@ import {
   type BrowserFile,
   type BrowserFolder,
 } from "@/components/files/FileBrowser";
+import {
+  ACCEPT_ATTRIBUTE,
+  ALLOWED_TYPES_SUMMARY,
+  UPLOAD_TYPES,
+  formatBytes,
+  validateUpload,
+} from "@/lib/upload-limits";
+
+/** Files above this size upload in parallel chunks with retry per chunk. */
+const MULTIPART_THRESHOLD = 8 * 1024 * 1024;
+
+interface UploadProgress {
+  name: string;
+  percentage: number;
+}
 
 type DeleteTarget = {
   type: "file" | "folder";
@@ -30,6 +46,8 @@ export default function AdminFilesPage() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [editFolder, setEditFolder] = useState<BrowserFolder | null>(null);
@@ -39,26 +57,69 @@ export default function AdminFilesPage() {
 
   const refresh = () => setReloadToken((token) => token + 1);
 
+  /**
+   * Uploads go straight from the browser to Blob storage, then we record the
+   * result. Routing them through our own API would cap files at ~4.5 MB.
+   */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
 
+    const selected = Array.from(fileList);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    // Reject what we can before spending anyone's bandwidth on it.
+    const errors: string[] = [];
+    const accepted: File[] = [];
+    for (const file of selected) {
+      const check = validateUpload(file.name, file.type, file.size);
+      if (check.ok) accepted.push(file);
+      else errors.push(check.error);
+    }
+
+    setUploadErrors(errors);
+    if (accepted.length === 0) return;
+
     setIsUploading(true);
     try {
-      for (const file of Array.from(fileList)) {
-        const formData = new FormData();
-        formData.append("file", file);
-        if (currentFolderId) {
-          formData.append("folderId", currentFolderId);
+      for (const file of accepted) {
+        setProgress({ name: file.name, percentage: 0 });
+        try {
+          const blob = await upload(file.name, file, {
+            access: "public",
+            handleUploadUrl: "/api/files/upload",
+            multipart: file.size > MULTIPART_THRESHOLD,
+            onUploadProgress: ({ percentage }) =>
+              setProgress({ name: file.name, percentage }),
+          });
+
+          const response = await fetch("/api/files/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: file.name,
+              blobUrl: blob.url,
+              fileType: file.type || blob.contentType,
+              fileSize: file.size,
+              folderId: currentFolderId,
+            }),
+          });
+
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || "Could not save the file");
+          }
+        } catch (error) {
+          errors.push(
+            `${file.name}: ${error instanceof Error ? error.message : "upload failed"}`
+          );
+          setUploadErrors([...errors]);
         }
-        await fetch("/api/files/upload", { method: "POST", body: formData });
       }
       refresh();
-    } catch (error) {
-      console.error("Error uploading files:", error);
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setProgress(null);
     }
   };
 
@@ -154,11 +215,71 @@ export default function AdminFilesPage() {
             ref={fileInputRef}
             type="file"
             multiple
+            accept={ACCEPT_ATTRIBUTE}
             className="hidden"
             onChange={handleFileUpload}
           />
         </div>
       </div>
+
+      {/* What's allowed, so limits are discoverable before a failure. */}
+      <p className="text-sm text-gray-500">
+        {ALLOWED_TYPES_SUMMARY}. Up to{" "}
+        {formatBytes(UPLOAD_TYPES.pdf.maxBytes)} for PDFs and PowerPoint,{" "}
+        {formatBytes(UPLOAD_TYPES.docx.maxBytes)} for Word, and{" "}
+        {formatBytes(UPLOAD_TYPES.png.maxBytes)} for images.
+      </p>
+
+      {progress && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate font-medium text-gray-900">
+              {progress.name}
+            </span>
+            <span className="flex-shrink-0 tabular-nums text-gray-500">
+              {Math.round(progress.percentage)}%
+            </span>
+          </div>
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-gray-100"
+            role="progressbar"
+            aria-valuenow={Math.round(progress.percentage)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="h-full rounded-full bg-navy transition-all duration-200"
+              style={{ width: `${progress.percentage}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {uploadErrors.length > 0 && (
+        <div
+          role="alert"
+          className="space-y-1 rounded-lg border border-error/20 bg-error/10 p-4 text-sm text-gray-800"
+        >
+          <p className="flex items-center gap-2 font-medium text-error">
+            <AlertTriangle className="h-4 w-4" />
+            {uploadErrors.length === 1
+              ? "One file wasn't uploaded"
+              : `${uploadErrors.length} files weren't uploaded`}
+          </p>
+          <ul className="list-disc space-y-1 pl-5">
+            {uploadErrors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setUploadErrors([])}
+            className="pt-1 text-sm font-medium text-navy hover:underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <FileBrowser
         reloadToken={reloadToken}

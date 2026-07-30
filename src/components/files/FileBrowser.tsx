@@ -1,23 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import {
-  ChevronRight,
-  Download,
-  Eye,
-  Folder,
-  FolderOpen,
-} from "lucide-react";
+import { ChevronRight, Download, Folder, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { FileIcon } from "@/components/files/FileIcon";
 import { FilePreviewDialog } from "@/components/files/FilePreviewDialog";
-import {
-  fileDownloadUrl,
-  formatFileSize,
-  isViewableInBrowser,
-} from "@/lib/file-kinds";
+import { fileDownloadUrl, formatFileSize } from "@/lib/file-kinds";
 import { formatTimestamp } from "@/lib/datetime";
 
 export interface BrowserFile {
@@ -177,9 +167,7 @@ export function FileBrowser({
                 </div>
               ))}
 
-              {files.map((file) => {
-                const canPreview = isViewableInBrowser(file.fileType, file.name);
-                return (
+              {files.map((file) => (
                   <div
                     key={file.id}
                     className="flex items-center gap-3 rounded-lg border border-gray-200 transition-colors hover:bg-gray-50"
@@ -202,17 +190,10 @@ export function FileBrowser({
                         </p>
                       </div>
                     </button>
+                    {/* No separate "view" button: the row itself opens the
+                        preview, and on a phone every icon here costs
+                        characters off the filename. */}
                     <div className="flex flex-shrink-0 items-center gap-1 pr-2">
-                      {canPreview && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setPreviewFile(file)}
-                          aria-label={`View ${file.name}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -226,8 +207,7 @@ export function FileBrowser({
                       {fileActions?.(file)}
                     </div>
                   </div>
-                );
-              })}
+              ))}
             </div>
           )}
         </CardContent>

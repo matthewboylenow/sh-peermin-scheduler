@@ -1,45 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
+import { NextResponse } from 'next/server';
+import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { auth } from '@/auth';
-import { db } from '@/db';
-import { files } from '@/db/schema';
+import {
+  ALLOWED_CONTENT_TYPES,
+  MAX_UPLOAD_BYTES,
+  getUploadType,
+} from '@/lib/upload-limits';
 
-export async function POST(request: NextRequest) {
+/**
+ * Issues a short-lived token so the browser can upload straight to Vercel Blob.
+ *
+ * The file never passes through this function, which is the point: a Vercel
+ * function's request body is capped at ~4.5 MB, so routing a 20 MB PDF through
+ * it fails outright. Going browser → Blob sidesteps that entirely, and Blob
+ * enforces the type and size limits we set here before accepting a byte.
+ *
+ * The database row is created afterwards by /api/files/register.
+ */
+export async function POST(request: Request): Promise<NextResponse> {
+  const body = (await request.json()) as HandleUploadBody;
+
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname) => {
+        const session = await auth();
+        if (!session?.user?.id) {
+          throw new Error('Not authenticated');
+        }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const folderId = formData.get('folderId') as string | null;
+        // Per-type ceiling, derived from the extension Blob will actually
+        // store it under — not from anything the client claims.
+        const uploadType = getUploadType(pathname);
+        if (!uploadType) {
+          throw new Error('That file type is not allowed');
+        }
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-    }
-
-    // Upload to Vercel Blob
-    const blob = await put(file.name, file, {
-      access: 'public',
+        return {
+          allowedContentTypes: ALLOWED_CONTENT_TYPES,
+          maximumSizeInBytes: Math.min(uploadType.maxBytes, MAX_UPLOAD_BYTES),
+          // Two files named "Handbook.pdf" must not collide; without this the
+          // second upload fails rather than sitting alongside the first.
+          addRandomSuffix: true,
+        };
+      },
+      // The DB row is written by /api/files/register instead of here, so that
+      // uploads also work on localhost (Blob can't call back to a machine it
+      // can't reach).
     });
 
-    // Save to database
-    const [savedFile] = await db.insert(files).values({
-      name: file.name,
-      blobUrl: blob.url,
-      fileType: file.type,
-      fileSize: file.size,
-      folderId: folderId || null,
-      uploadedBy: session.user.id,
-    }).returning();
-
-    return NextResponse.json(savedFile, { status: 201 });
+    return NextResponse.json(jsonResponse);
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Error issuing upload token:', error);
     return NextResponse.json(
-      { error: 'Failed to upload file' },
-      { status: 500 }
+      { error: error instanceof Error ? error.message : 'Upload failed' },
+      { status: 400 }
     );
   }
 }
