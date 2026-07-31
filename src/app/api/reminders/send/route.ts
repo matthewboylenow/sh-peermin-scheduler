@@ -39,11 +39,22 @@ function renderTemplate(
 // This should be called by a cron job (e.g., Vercel Cron)
 export async function POST(request: NextRequest) {
   try {
-    // Verify cron secret (for security)
-    const authHeader = request.headers.get('authorization');
+    // This endpoint sends real SMS to every peer minister scheduled tomorrow
+    // and marks them as reminded, so an unauthenticated call both spams minors
+    // and suppresses the genuine reminder. Treat a missing secret as a
+    // misconfiguration rather than as "no check required".
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('CRON_SECRET is not set; refusing to run the reminder job.');
+        return NextResponse.json(
+          { error: 'Reminder job is not configured' },
+          { status: 500 }
+        );
+      }
+      console.warn('[reminders] CRON_SECRET is not set; allowing in development only.');
+    } else if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
