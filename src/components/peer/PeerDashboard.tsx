@@ -12,6 +12,7 @@ import {
   FolderOpen,
   HandHeart,
   MapPin,
+  Pin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,9 @@ import { FileIcon } from "@/components/files/FileIcon";
 import { FilePreviewDialog } from "@/components/files/FilePreviewDialog";
 import {
   fileDownloadUrl,
+  fileViewUrl,
   formatFileSize,
+  getFileKind,
   isViewableInBrowser,
 } from "@/lib/file-kinds";
 import {
@@ -76,9 +79,11 @@ interface Opportunity {
  */
 export function PeerDashboard({ firstName }: { firstName: string }) {
   const [files, setFiles] = useState<RecentFile[]>([]);
+  const [featured, setFeatured] = useState<RecentFile[]>([]);
   const [folders, setFolders] = useState<TopFolder[]>([]);
   const [nextAssignment, setNextAssignment] = useState<Assignment | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [signupCount, setSignupCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState<RecentFile | null>(null);
 
@@ -87,11 +92,13 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
 
     const load = async () => {
       try {
-        const [filesRes, assignmentsRes, opportunitiesRes] = await Promise.all([
-          fetch("/api/files?recent=6"),
-          fetch("/api/assignments"),
-          fetch("/api/opportunities"),
-        ]);
+        const [filesRes, assignmentsRes, opportunitiesRes, signupsRes] =
+          await Promise.all([
+            fetch("/api/files?recent=6"),
+            fetch("/api/assignments"),
+            fetch("/api/opportunities"),
+            fetch("/api/signups"),
+          ]);
 
         if (cancelled) return;
 
@@ -99,6 +106,12 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
           const data = await filesRes.json();
           setFiles(data.files ?? []);
           setFolders(data.folders ?? []);
+          setFeatured(data.featured ?? []);
+        }
+
+        if (signupsRes.ok) {
+          const data = await signupsRes.json();
+          setSignupCount(Array.isArray(data) ? data.length : 0);
         }
 
         if (assignmentsRes.ok) {
@@ -136,6 +149,8 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
     );
   }
 
+  const openSignups = opportunities.length + signupCount;
+
   return (
     <div className="space-y-6">
       <div>
@@ -144,6 +159,76 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
         </h1>
         <p className="text-gray-500">Your ministry files and resources</p>
       </div>
+
+      {/* Pinned by an admin — the ministry calendar usually lives here, so it
+          sits above everything else. Images render in place; anything else
+          gets a card that opens the viewer. */}
+      {featured.length > 0 && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            <Pin className="h-4 w-4" />
+            Pinned
+          </h2>
+          <div className="space-y-3">
+            {featured.map((file) => {
+              const isImage = getFileKind(file.fileType, file.name) === "image";
+              return (
+                <Card key={file.id} className="overflow-hidden">
+                  {isImage ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewFile(file)}
+                      className="block w-full text-left"
+                      aria-label={`Open ${file.name}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={fileViewUrl(file.id)}
+                        alt={file.name}
+                        // Capped so a tall portrait calendar doesn't push the
+                        // rest of the dashboard off the bottom of a phone.
+                        className="max-h-[65vh] w-full bg-gray-50 object-contain"
+                      />
+                      <div className="flex items-center justify-between gap-3 border-t border-gray-200 p-3">
+                        <span className="min-w-0 truncate text-sm font-medium text-gray-900">
+                          {file.name}
+                        </span>
+                        <span className="flex-shrink-0 text-xs text-gray-500">
+                          Tap to enlarge
+                        </span>
+                      </div>
+                    </button>
+                  ) : (
+                    <CardContent className="flex items-center gap-3 p-3 sm:p-4">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                        <FileIcon
+                          fileType={file.fileType}
+                          fileName={file.name}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-gray-900">
+                          {file.name}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {formatFileSize(file.fileSize)}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => setPreviewFile(file)}
+                        className="flex-shrink-0"
+                      >
+                        Open
+                      </Button>
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Folders */}
       <section>
@@ -302,25 +387,25 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
         </Card>
       )}
 
-      {/* Volunteer opportunities */}
-      {opportunities.length > 0 && (
+      {/* Sign-ups — both the dated opportunities and the standing links */}
+      {openSignups > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <HandHeart className="h-5 w-5 text-rust" />
-              Volunteer Opportunities
-              <Badge variant="secondary">{opportunities.length}</Badge>
+              Sign-Ups
+              <Badge variant="secondary">{openSignups}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-3 text-sm text-gray-600">
-              {opportunities.length === 1
+              {openSignups === 1
                 ? "There's an open sign-up waiting for volunteers."
-                : `There are ${opportunities.length} open sign-ups waiting for volunteers.`}
+                : `There are ${openSignups} open sign-ups waiting for volunteers.`}
             </p>
             <Button asChild size="sm">
               <Link href="/my/opportunities">
-                See opportunities
+                See sign-ups
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>

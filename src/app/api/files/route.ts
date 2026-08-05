@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     // Dashboard shortcut: newest uploads across every folder, plus the
     // top-level folders so peer ministers can jump straight in.
     if (Number.isFinite(recentLimit) && recentLimit > 0) {
-      const [recentFiles, topLevelFolders] = await Promise.all([
+      const [recentFiles, topLevelFolders, featuredFiles] = await Promise.all([
         db.query.files.findMany({
           orderBy: [desc(files.createdAt)],
           limit: Math.min(recentLimit, 50),
@@ -33,11 +33,16 @@ export async function GET(request: NextRequest) {
           where: isNull(folders.parentId),
           orderBy: [folders.name],
         }),
+        db.query.files.findMany({
+          where: eq(files.isFeatured, true),
+          orderBy: [desc(files.createdAt)],
+        }),
       ]);
 
       return NextResponse.json({
         files: recentFiles,
         folders: topLevelFolders,
+        featured: featuredFiles,
         breadcrumbs: [{ id: null, name: 'Files' }],
       });
     }

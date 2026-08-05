@@ -17,6 +17,8 @@ export interface BrowserFile {
   fileType: string;
   fileSize: number;
   createdAt: string;
+  /** Pinned to the top of the peer minister dashboard. */
+  isFeatured?: boolean;
 }
 
 export interface BrowserFolder {

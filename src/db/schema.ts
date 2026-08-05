@@ -86,7 +86,32 @@ export const files = pgTable('files', {
   fileType: text('file_type').notNull(), // MIME type
   fileSize: integer('file_size').notNull(), // bytes
   uploadedBy: uuid('uploaded_by').references(() => users.id).notNull(),
+  // Pinned to the top of the peer minister dashboard — used for the parish
+  // calendar, which people look at far more often than they browse folders.
+  isFeatured: boolean('is_featured').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Standing sign-up links (SignUpGenius and friends).
+//
+// Deliberately dateless: a sign-up like "MS Small/Large Group Session" covers
+// six dates across two months with different times, and the provider's page
+// already owns that detail. Modelling each date here would duplicate it and
+// let the two drift apart, so we store what the sign-up *is* and link out.
+export const signups = pgTable('signups', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: text('title').notNull(),
+  description: text('description'),
+  url: text('url').notNull(),
+  category: text('category').notNull().default('peer_ministry'),
+  // Free text, e.g. "Sept 9, 16, 23 and Nov 4, 11, 18" — a human hint, not
+  // something the app parses or schedules against.
+  scheduleNote: text('schedule_note'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isActive: boolean('is_active').notNull().default(true),
+  createdBy: uuid('created_by').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // Verification Codes Table (SMS login)
@@ -165,6 +190,10 @@ export const foldersRelations = relations(folders, ({ one, many }) => ({
   creator: one(users, { fields: [folders.createdBy], references: [users.id] }),
 }));
 
+export const signupsRelations = relations(signups, ({ one }) => ({
+  creator: one(users, { fields: [signups.createdBy], references: [users.id] }),
+}));
+
 export const filesRelations = relations(files, ({ one }) => ({
   folder: one(folders, { fields: [files.folderId], references: [folders.id] }),
   uploader: one(users, { fields: [files.uploadedBy], references: [users.id] }),
@@ -195,3 +224,5 @@ export type SmsSettings = typeof smsSettings.$inferSelect;
 export type NewSmsSettings = typeof smsSettings.$inferInsert;
 export type SmsLog = typeof smsLog.$inferSelect;
 export type NewSmsLog = typeof smsLog.$inferInsert;
+export type Signup = typeof signups.$inferSelect;
+export type NewSignup = typeof signups.$inferInsert;

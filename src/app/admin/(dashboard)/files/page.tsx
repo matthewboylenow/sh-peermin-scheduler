@@ -2,7 +2,14 @@
 
 import { useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
-import { AlertTriangle, FolderPlus, Pencil, Trash2, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  FolderPlus,
+  Pencil,
+  Pin,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -155,6 +162,24 @@ export default function AdminFilesPage() {
       refresh();
     } catch (error) {
       console.error("Error renaming folder:", error);
+    }
+  };
+
+  /**
+   * Pinning puts a file at the top of every peer minister's dashboard — how
+   * the printed ministry calendar gets in front of people without asking them
+   * to go hunting for it in a folder.
+   */
+  const handleToggleFeatured = async (file: BrowserFile) => {
+    try {
+      await fetch(`/api/files/${file.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isFeatured: !file.isFeatured }),
+      });
+      refresh();
+    } catch (error) {
+      console.error("Error updating file:", error);
     }
   };
 
@@ -317,17 +342,39 @@ export default function AdminFilesPage() {
           </>
         )}
         fileActions={(file: BrowserFile) => (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-red-600 hover:text-red-700"
-            onClick={() =>
-              setDeleteTarget({ type: "file", id: file.id, name: file.name })
-            }
-            aria-label={`Delete ${file.name}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={file.isFeatured ? "text-rust" : "text-gray-400"}
+              onClick={() => handleToggleFeatured(file)}
+              aria-label={
+                file.isFeatured
+                  ? `Unpin ${file.name} from the dashboard`
+                  : `Pin ${file.name} to the dashboard`
+              }
+              title={
+                file.isFeatured
+                  ? "Pinned to the peer minister dashboard"
+                  : "Pin to the peer minister dashboard"
+              }
+            >
+              <Pin
+                className={`h-4 w-4 ${file.isFeatured ? "fill-current" : ""}`}
+              />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-red-600 hover:text-red-700"
+              onClick={() =>
+                setDeleteTarget({ type: "file", id: file.id, name: file.name })
+              }
+              aria-label={`Delete ${file.name}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
         )}
       />
 

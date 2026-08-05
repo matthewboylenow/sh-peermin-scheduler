@@ -15,7 +15,7 @@ export const PEER_NAV = [
   { name: "Home", href: "/my", icon: Home, exact: true },
   { name: "Files", href: "/my/files", icon: FolderOpen, exact: false },
   { name: "Schedule", href: "/my/schedule", icon: Calendar, exact: false },
-  { name: "Volunteer", href: "/my/opportunities", icon: HandHeart, exact: false },
+  { name: "Sign-Ups", href: "/my/opportunities", icon: HandHeart, exact: false },
 ];
 
 function useIsActive() {
