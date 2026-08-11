@@ -280,8 +280,8 @@ export default function AdminSignupsPage() {
       </div>
 
       <p className="text-sm text-gray-500">
-        Use these for sign-ups that cover several dates — a session series, the
-        hospitality rota, parish ministries. The dates live on the sign-up page
+        Use these for sign-ups that cover several dates — media ministry,
+        hospitality, service projects, etc. The dates live on the sign-up page
         itself, so nothing here needs updating when they change. For a single
         dated event with slots you assign, create an Event instead.
       </p>
