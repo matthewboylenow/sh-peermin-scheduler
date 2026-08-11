@@ -48,6 +48,9 @@ export function parseDateOnly(dateStr: string): Date {
 const DATE_STYLES = {
   short: { month: "short", day: "numeric" },
   medium: { month: "short", day: "numeric", year: "numeric" },
+  // Spelled-out month with the year, e.g. "September 9, 2026". Used wherever a
+  // date has to be unambiguous at a glance rather than compact.
+  full: { month: "long", day: "numeric", year: "numeric" },
   long: { weekday: "long", month: "long", day: "numeric", year: "numeric" },
   weekday: { weekday: "long", month: "short", day: "numeric" },
 } satisfies Record<string, Intl.DateTimeFormatOptions>;

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ExternalLink,
   EyeOff,
+  Folder,
+  FolderPlus,
   Link2,
   Pencil,
   Plus,
@@ -31,34 +33,40 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  SIGNUP_CATEGORIES,
-  categoryLabel,
-  categoryRank,
-} from "@/lib/signup-categories";
 
 interface Signup {
   id: string;
   title: string;
   description: string | null;
   url: string;
-  category: string;
+  folderId: string | null;
   scheduleNote: string | null;
   sortOrder: number;
   isActive: boolean;
 }
 
+interface SignupFolder {
+  id: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+}
+
+/** Select values can't be empty strings, so unfiled uses a sentinel. */
+const NO_FOLDER = "none";
+
 const BLANK = {
   title: "",
   description: "",
   url: "",
-  category: "peer_ministry",
+  folderId: NO_FOLDER,
   scheduleNote: "",
   isActive: true,
 };
 
 export default function AdminSignupsPage() {
   const [signups, setSignups] = useState<Signup[]>([]);
+  const [folders, setFolders] = useState<SignupFolder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editing, setEditing] = useState<Signup | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -68,11 +76,22 @@ export default function AdminSignupsPage() {
   const [error, setError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Signup | null>(null);
 
+  const [editingFolder, setEditingFolder] = useState<SignupFolder | null>(null);
+  const [isFolderFormOpen, setIsFolderFormOpen] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [folderError, setFolderError] = useState("");
+  const [deleteFolderTarget, setDeleteFolderTarget] =
+    useState<SignupFolder | null>(null);
+
   const load = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/signups?includeInactive=1");
-      if (response.ok) setSignups(await response.json());
+      const [signupsRes, foldersRes] = await Promise.all([
+        fetch("/api/signups?includeInactive=1"),
+        fetch("/api/signup-folders"),
+      ]);
+      if (signupsRes.ok) setSignups(await signupsRes.json());
+      if (foldersRes.ok) setFolders(await foldersRes.json());
     } catch (err) {
       console.error("Error loading sign-ups:", err);
     } finally {
@@ -97,7 +116,7 @@ export default function AdminSignupsPage() {
       title: signup.title,
       description: signup.description ?? "",
       url: signup.url,
-      category: signup.category,
+      folderId: signup.folderId ?? NO_FOLDER,
       scheduleNote: signup.scheduleNote ?? "",
       isActive: signup.isActive,
     });
@@ -152,7 +171,7 @@ export default function AdminSignupsPage() {
             title: form.title.trim(),
             description: form.description.trim() || null,
             url: form.url.trim(),
-            category: form.category,
+            folderId: form.folderId === NO_FOLDER ? null : form.folderId,
             scheduleNote: form.scheduleNote.trim() || null,
             isActive: form.isActive,
           }),
@@ -177,13 +196,61 @@ export default function AdminSignupsPage() {
     load();
   };
 
-  const grouped = signups.reduce<Record<string, Signup[]>>((acc, signup) => {
-    (acc[signup.category] ||= []).push(signup);
-    return acc;
-  }, {});
-  const categories = Object.keys(grouped).sort(
-    (a, b) => categoryRank(a) - categoryRank(b)
-  );
+  const openNewFolder = () => {
+    setEditingFolder(null);
+    setFolderName("");
+    setFolderError("");
+    setIsFolderFormOpen(true);
+  };
+
+  const openEditFolder = (folder: SignupFolder) => {
+    setEditingFolder(folder);
+    setFolderName(folder.name);
+    setFolderError("");
+    setIsFolderFormOpen(true);
+  };
+
+  const saveFolder = async () => {
+    if (!folderName.trim()) {
+      setFolderError("Give the folder a name.");
+      return;
+    }
+    try {
+      const response = await fetch(
+        editingFolder
+          ? `/api/signup-folders/${editingFolder.id}`
+          : "/api/signup-folders",
+        {
+          method: editingFolder ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: folderName.trim(),
+            sortOrder: editingFolder?.sortOrder ?? folders.length,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save");
+
+      setIsFolderFormOpen(false);
+      load();
+    } catch (err) {
+      setFolderError(err instanceof Error ? err.message : "An error occurred");
+    }
+  };
+
+  const removeFolder = async () => {
+    if (!deleteFolderTarget) return;
+    await fetch(`/api/signup-folders/${deleteFolderTarget.id}`, {
+      method: "DELETE",
+    });
+    setDeleteFolderTarget(null);
+    load();
+  };
+
+  const inFolder = (folderId: string | null) =>
+    signups.filter((signup) => signup.folderId === folderId);
+  const loose = inFolder(null);
 
   return (
     <div className="space-y-6">
@@ -196,10 +263,20 @@ export default function AdminSignupsPage() {
             Standing links peer ministers can claim a spot on themselves
           </p>
         </div>
-        <Button onClick={openNew} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4" />
-          Add Sign-Up
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={openNewFolder}
+            className="flex-1 sm:flex-none"
+          >
+            <FolderPlus className="h-4 w-4" />
+            New Folder
+          </Button>
+          <Button onClick={openNew} className="flex-1 sm:flex-none">
+            <Plus className="h-4 w-4" />
+            Add Sign-Up
+          </Button>
+        </div>
       </div>
 
       <p className="text-sm text-gray-500">
@@ -213,7 +290,7 @@ export default function AdminSignupsPage() {
         <div className="flex justify-center py-12">
           <Spinner size="lg" />
         </div>
-      ) : signups.length === 0 ? (
+      ) : signups.length === 0 && folders.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Link2 className="mx-auto mb-4 h-12 w-12 text-gray-300" />
@@ -228,70 +305,74 @@ export default function AdminSignupsPage() {
           </CardContent>
         </Card>
       ) : (
-        categories.map((category) => (
-          <section key={category}>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-              {categoryLabel(category)}
-            </h2>
-            <div className="space-y-3">
-              {grouped[category].map((signup) => (
-                <Card key={signup.id} className={signup.isActive ? "" : "opacity-60"}>
-                  <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-medium text-gray-900">
-                          {signup.title}
-                        </h3>
-                        {!signup.isActive && (
-                          <Badge variant="secondary" className="gap-1">
-                            <EyeOff className="h-3 w-3" />
-                            Hidden
-                          </Badge>
-                        )}
-                      </div>
-                      {signup.scheduleNote && (
-                        <p className="mt-0.5 text-sm font-medium text-navy">
-                          {signup.scheduleNote}
-                        </p>
-                      )}
-                      <a
-                        href={signup.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 break-all text-sm text-gray-500 hover:text-navy"
-                      >
-                        {signup.url}
-                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                      </a>
-                    </div>
-                    <div className="flex flex-shrink-0 gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEdit(signup)}
-                        aria-label={`Edit ${signup.title}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => setDeleteTarget(signup)}
-                        aria-label={`Delete ${signup.title}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-        ))
+        <>
+          {folders.map((folder) => (
+            <section key={folder.id}>
+              <div className="mb-3 flex items-center gap-2">
+                <Folder className="h-4 w-4 flex-shrink-0 text-gray-500" />
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
+                  {folder.name}
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openEditFolder(folder)}
+                  aria-label={`Rename ${folder.name}`}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={() => setDeleteFolderTarget(folder)}
+                  aria-label={`Delete folder ${folder.name}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {inFolder(folder.id).length === 0 ? (
+                <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-400">
+                  Empty — peer ministers won&apos;t see this folder until
+                  something is in it.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {inFolder(folder.id).map((signup) => (
+                    <SignupRow
+                      key={signup.id}
+                      signup={signup}
+                      onEdit={openEdit}
+                      onDelete={setDeleteTarget}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
+
+          {loose.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+                {folders.length > 0 ? "Not in a folder" : "All sign-ups"}
+              </h2>
+              <div className="space-y-3">
+                {loose.map((signup) => (
+                  <SignupRow
+                    key={signup.id}
+                    signup={signup}
+                    onEdit={openEdit}
+                    onDelete={setDeleteTarget}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       )}
 
-      {/* Add / edit */}
+      {/* Add / edit sign-up */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
@@ -358,22 +439,29 @@ export default function AdminSignupsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="signupCategory">Category</Label>
+              <Label htmlFor="signupFolder">Folder</Label>
               <Select
-                value={form.category}
-                onValueChange={(value) => setForm({ ...form, category: value })}
+                value={form.folderId}
+                onValueChange={(value) => setForm({ ...form, folderId: value })}
               >
-                <SelectTrigger id="signupCategory">
+                <SelectTrigger id="signupFolder">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SIGNUP_CATEGORIES.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
+                  <SelectItem value={NO_FOLDER}>
+                    Not in a folder
+                  </SelectItem>
+                  {folders.map((folder) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      {folder.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-gray-500">
+                Sign-ups without a folder sit on their own at the bottom of the
+                page.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -439,7 +527,50 @@ export default function AdminSignupsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete */}
+      {/* Add / rename folder */}
+      <Dialog open={isFolderFormOpen} onOpenChange={setIsFolderFormOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingFolder ? "Rename Folder" : "New Folder"}
+            </DialogTitle>
+            <DialogDescription>
+              Folders group sign-ups on the peer minister page — for example
+              &ldquo;Mass Ministries&rdquo; or &ldquo;MS Large Group &amp;
+              EDGE&rdquo;.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {folderError && (
+              <div
+                role="alert"
+                className="rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error"
+              >
+                {folderError}
+              </div>
+            )}
+            <Label htmlFor="folderNameField">Folder Name</Label>
+            <Input
+              id="folderNameField"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              placeholder="e.g. Mass Ministries"
+              onKeyDown={(e) => e.key === "Enter" && saveFolder()}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsFolderFormOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={saveFolder}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete sign-up */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
@@ -460,6 +591,95 @@ export default function AdminSignupsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete folder */}
+      <Dialog
+        open={!!deleteFolderTarget}
+        onOpenChange={() => setDeleteFolderTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Folder</DialogTitle>
+            <DialogDescription>
+              Delete{" "}
+              <span className="font-medium">{deleteFolderTarget?.name}</span>?
+              Any sign-ups inside stay — they just move out of the folder.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteFolderTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={removeFolder}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function SignupRow({
+  signup,
+  onEdit,
+  onDelete,
+}: {
+  signup: Signup;
+  onEdit: (signup: Signup) => void;
+  onDelete: (signup: Signup) => void;
+}) {
+  return (
+    <Card className={signup.isActive ? "" : "opacity-60"}>
+      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-medium text-gray-900">{signup.title}</h3>
+            {!signup.isActive && (
+              <Badge variant="secondary" className="gap-1">
+                <EyeOff className="h-3 w-3" />
+                Hidden
+              </Badge>
+            )}
+          </div>
+          {signup.scheduleNote && (
+            <p className="mt-0.5 text-sm font-medium text-navy">
+              {signup.scheduleNote}
+            </p>
+          )}
+          <a
+            href={signup.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-flex items-center gap-1 break-all text-sm text-gray-500 hover:text-navy"
+          >
+            {signup.url}
+            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+          </a>
+        </div>
+        <div className="flex flex-shrink-0 gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onEdit(signup)}
+            aria-label={`Edit ${signup.title}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-red-600 hover:text-red-700"
+            onClick={() => onDelete(signup)}
+            aria-label={`Delete ${signup.title}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

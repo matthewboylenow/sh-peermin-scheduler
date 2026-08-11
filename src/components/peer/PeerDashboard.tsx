@@ -15,8 +15,7 @@ import {
   Pin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { FileIcon } from "@/components/files/FileIcon";
 import { FilePreviewDialog } from "@/components/files/FilePreviewDialog";
@@ -25,11 +24,9 @@ import {
   fileViewUrl,
   formatFileSize,
   getFileKind,
-  isViewableInBrowser,
 } from "@/lib/file-kinds";
 import {
   formatTimeRange,
-  formatTimestamp,
   relativeEventDate,
   todayInEastern,
 } from "@/lib/datetime";
@@ -64,26 +61,25 @@ interface Assignment {
   };
 }
 
-interface Opportunity {
-  id: string;
-  title: string;
-  eventDate: string;
-  startTime: string;
-  signupUrl: string;
-}
+/** How many of each list the dashboard shows before deferring to a full page. */
+const RECENT_FILE_COUNT = 3;
+const FOLDER_COUNT = 4;
 
 /**
- * The peer minister landing page. Files come first — that's what people open
- * the app for day to day — with a compact reminder of the next assignment and
- * any open volunteer sign-ups underneath.
+ * The peer minister landing page.
+ *
+ * Kept deliberately short: almost everyone opens this on a phone, and the tab
+ * bar already covers Files, Schedule and Sign-Ups. So this screen answers
+ * "what do I need right now" — the next thing they are on for, whatever an
+ * admin has pinned, and a few shortcuts — rather than trying to be a full
+ * index of everything.
  */
 export function PeerDashboard({ firstName }: { firstName: string }) {
   const [files, setFiles] = useState<RecentFile[]>([]);
   const [featured, setFeatured] = useState<RecentFile[]>([]);
   const [folders, setFolders] = useState<TopFolder[]>([]);
   const [nextAssignment, setNextAssignment] = useState<Assignment | null>(null);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [signupCount, setSignupCount] = useState(0);
+  const [openSignups, setOpenSignups] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState<RecentFile | null>(null);
 
@@ -94,7 +90,7 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
       try {
         const [filesRes, assignmentsRes, opportunitiesRes, signupsRes] =
           await Promise.all([
-            fetch("/api/files?recent=6"),
+            fetch(`/api/files?recent=${RECENT_FILE_COUNT}`),
             fetch("/api/assignments"),
             fetch("/api/opportunities"),
             fetch("/api/signups"),
@@ -109,11 +105,6 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
           setFeatured(data.featured ?? []);
         }
 
-        if (signupsRes.ok) {
-          const data = await signupsRes.json();
-          setSignupCount(Array.isArray(data) ? data.length : 0);
-        }
-
         if (assignmentsRes.ok) {
           const data: Assignment[] = await assignmentsRes.json();
           const today = todayInEastern();
@@ -125,8 +116,19 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
           setNextAssignment(upcoming[0] ?? null);
         }
 
-        if (opportunitiesRes.ok) {
-          setOpportunities(await opportunitiesRes.json());
+        // One number for both kinds of sign-up — the teen doesn't care which
+        // list a thing came from, only whether there's something to claim.
+        const counts = await Promise.all([
+          opportunitiesRes.ok ? opportunitiesRes.json() : [],
+          signupsRes.ok ? signupsRes.json() : [],
+        ]);
+        if (!cancelled) {
+          setOpenSignups(
+            counts.reduce(
+              (total, list) => total + (Array.isArray(list) ? list.length : 0),
+              0
+            )
+          );
         }
       } catch (error) {
         console.error("Error loading dashboard:", error);
@@ -149,23 +151,56 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
     );
   }
 
-  const openSignups = opportunities.length + signupCount;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-navy sm:text-3xl">
-          Hi, {firstName}
-        </h1>
-        <p className="text-gray-500">Your ministry files and resources</p>
-      </div>
+    <div className="space-y-5">
+      <h1 className="font-heading text-2xl font-bold text-navy sm:text-3xl">
+        Hi, {firstName}
+      </h1>
 
-      {/* Pinned by an admin — the ministry calendar usually lives here, so it
-          sits above everything else. Images render in place; anything else
-          gets a card that opens the viewer. */}
+      {/* The one personal, time-sensitive thing — so it goes first. */}
+      {nextAssignment && (
+        <Link
+          href="/my/schedule"
+          className="block rounded-xl border-2 border-navy bg-navy/5 p-4 transition-colors hover:bg-navy/10"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-navy">
+            {relativeEventDate(nextAssignment.slot.event.eventDate) === "Today"
+              ? "You're on today"
+              : "You're next on"}
+          </p>
+          <p className="mt-1 font-semibold text-gray-900">
+            {nextAssignment.slot.event.title}
+          </p>
+          <p className="text-sm font-medium text-navy">
+            {nextAssignment.slot.name}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+            <span className="flex items-center gap-1">
+              <Calendar className="h-4 w-4 flex-shrink-0" />
+              {relativeEventDate(nextAssignment.slot.event.eventDate)}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-4 w-4 flex-shrink-0" />
+              {formatTimeRange(
+                nextAssignment.slot.event.startTime,
+                nextAssignment.slot.event.endTime
+              )}
+            </span>
+            {nextAssignment.slot.event.location && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                {nextAssignment.slot.event.location}
+              </span>
+            )}
+          </div>
+        </Link>
+      )}
+
+      {/* Pinned by an admin — usually the ministry calendar. Images render in
+          place; anything else gets a card that opens the viewer. */}
       {featured.length > 0 && (
         <section>
-          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-gray-500">
+          <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-gray-500">
             <Pin className="h-4 w-4" />
             Pinned
           </h2>
@@ -187,7 +222,7 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
                         alt={file.name}
                         // Capped so a tall portrait calendar doesn't push the
                         // rest of the dashboard off the bottom of a phone.
-                        className="max-h-[65vh] w-full bg-gray-50 object-contain"
+                        className="max-h-[60vh] w-full bg-gray-50 object-contain"
                       />
                       <div className="flex items-center justify-between gap-3 border-t border-gray-200 p-3">
                         <span className="min-w-0 truncate text-sm font-medium text-gray-900">
@@ -230,34 +265,45 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
         </section>
       )}
 
-      {/* Folders */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
-            Folders
-          </h2>
-          <Link
-            href="/my/files"
-            className="flex items-center gap-1 text-sm font-medium text-navy hover:underline"
-          >
-            Browse all
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
+      {/* Sign-ups: one row rather than a card. The count is the whole message. */}
+      {openSignups > 0 && (
+        <Link
+          href="/my/opportunities"
+          className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
+        >
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-rust/10">
+            <HandHeart className="h-5 w-5 text-rust" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-gray-900">Sign-Ups</p>
+            <p className="text-sm text-gray-500">
+              {openSignups === 1
+                ? "1 open sign-up"
+                : `${openSignups} open sign-ups`}
+            </p>
+          </div>
+          <ChevronRight className="h-5 w-5 flex-shrink-0 text-gray-400" />
+        </Link>
+      )}
 
-        {folders.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center">
-              <FolderOpen className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-              <p className="text-gray-500">No folders yet</p>
-              <p className="text-sm text-gray-400">
-                Ministry resources will appear here once they&apos;re added.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {folders.slice(0, 6).map((folder) => (
+      {/* Folders */}
+      {folders.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
+              Folders
+            </h2>
+            <Link
+              href="/my/files"
+              className="flex items-center gap-1 text-sm font-medium text-navy hover:underline"
+            >
+              Browse all
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {folders.slice(0, FOLDER_COUNT).map((folder) => (
               <Link
                 key={folder.id}
                 href={`/my/files?folder=${folder.id}`}
@@ -272,145 +318,67 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
               </Link>
             ))}
           </div>
-        )}
-      </section>
-
-      {/* Recently added files */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-          Recently Added
-        </h2>
-        <Card>
-          <CardContent className="p-3 sm:p-4">
-            {files.length === 0 ? (
-              <p className="py-6 text-center text-sm text-gray-500">
-                No files have been shared yet.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {files.map((file) => (
-                  <div
-                    key={file.id}
-                    className="flex items-center gap-3 rounded-lg border border-gray-200 transition-colors hover:bg-gray-50"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setPreviewFile(file)}
-                      className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
-                    >
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
-                        <FileIcon fileType={file.fileType} fileName={file.name} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-gray-900">
-                          {file.name}
-                        </p>
-                        {/* Wraps rather than truncates: the upload date is
-                            worth more than a single tidy line on a phone. */}
-                        <p className="text-sm text-gray-500">
-                          {file.folder ? `${file.folder.name} • ` : ""}
-                          {formatFileSize(file.fileSize)} •{" "}
-                          {formatTimestamp(file.createdAt)}
-                        </p>
-                      </div>
-                    </button>
-                    <div className="flex flex-shrink-0 items-center pr-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        asChild
-                        aria-label={`Download ${file.name}`}
-                      >
-                        <a href={fileDownloadUrl(file.id)}>
-                          <Download className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        {files.some((file) => isViewableInBrowser(file.fileType, file.name)) && (
-          <p className="mt-2 text-xs text-gray-400">
-            Tap a file to read it here, or use the download button to save it.
-          </p>
-        )}
-      </section>
-
-      {/* Next assignment */}
-      {nextAssignment && (
-        <Card className="border-2 border-navy bg-navy/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base text-navy">
-              <Calendar className="h-5 w-5" />
-              {relativeEventDate(nextAssignment.slot.event.eventDate) ===
-              "Today"
-                ? "Coming up today"
-                : "Next assignment"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="font-semibold text-gray-900">
-              {nextAssignment.slot.event.title}
-            </p>
-            <p className="text-sm font-medium text-navy">
-              {nextAssignment.slot.name}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {relativeEventDate(nextAssignment.slot.event.eventDate)}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                {formatTimeRange(
-                  nextAssignment.slot.event.startTime,
-                  nextAssignment.slot.event.endTime
-                )}
-              </span>
-              {nextAssignment.slot.event.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {nextAssignment.slot.event.location}
-                </span>
-              )}
-            </div>
-            <Button asChild variant="outline" size="sm" className="mt-4">
-              <Link href="/my/schedule">
-                View full schedule
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        </section>
       )}
 
-      {/* Sign-ups — both the dated opportunities and the standing links */}
-      {openSignups > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <HandHeart className="h-5 w-5 text-rust" />
-              Sign-Ups
-              <Badge variant="secondary">{openSignups}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-3 text-sm text-gray-600">
-              {openSignups === 1
-                ? "There's an open sign-up waiting for volunteers."
-                : `There are ${openSignups} open sign-ups waiting for volunteers.`}
-            </p>
-            <Button asChild size="sm">
-              <Link href="/my/opportunities">
-                See sign-ups
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Recently added files */}
+      {files.length > 0 ? (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            Recently Added
+          </h2>
+          <div className="space-y-2">
+            {files.map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white transition-colors hover:bg-gray-50"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewFile(file)}
+                  className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left"
+                >
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                    <FileIcon fileType={file.fileType} fileName={file.name} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-gray-900">
+                      {file.name}
+                    </p>
+                    <p className="truncate text-sm text-gray-500">
+                      {file.folder ? `${file.folder.name} • ` : ""}
+                      {formatFileSize(file.fileSize)}
+                    </p>
+                  </div>
+                </button>
+                <div className="flex flex-shrink-0 items-center pr-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    asChild
+                    aria-label={`Download ${file.name}`}
+                  >
+                    <a href={fileDownloadUrl(file.id)}>
+                      <Download className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        folders.length === 0 && (
+          <Card>
+            <CardContent className="py-10 text-center">
+              <FolderOpen className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+              <p className="text-gray-500">Nothing here yet</p>
+              <p className="text-sm text-gray-400">
+                Ministry resources will appear once they&apos;re added.
+              </p>
+            </CardContent>
+          </Card>
+        )
       )}
 
       <FilePreviewDialog

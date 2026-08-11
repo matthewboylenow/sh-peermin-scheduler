@@ -92,6 +92,21 @@ export const files = pgTable('files', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Folders for grouping sign-up links, named by whoever runs the ministry.
+//
+// Deliberately free-form rather than a fixed list of categories: "Mass
+// Ministries" and "MS Large Group & EDGE" are the groupings that made sense to
+// the youth minister, and the next person to hold the job will want different
+// ones. Renaming a folder should not require a deploy.
+export const signupFolders = pgTable('signup_folders', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Standing sign-up links (SignUpGenius and friends).
 //
 // Deliberately dateless: a sign-up like "MS Small/Large Group Session" covers
@@ -103,7 +118,11 @@ export const signups = pgTable('signups', {
   title: text('title').notNull(),
   description: text('description'),
   url: text('url').notNull(),
-  category: text('category').notNull().default('peer_ministry'),
+  // Null means the sign-up sits loose at the top level rather than inside a
+  // folder — deleting a folder leaves its sign-ups there rather than with them.
+  folderId: uuid('folder_id').references(() => signupFolders.id, {
+    onDelete: 'set null',
+  }),
   // Free text, e.g. "Sept 9, 16, 23 and Nov 4, 11, 18" — a human hint, not
   // something the app parses or schedules against.
   scheduleNote: text('schedule_note'),
@@ -112,6 +131,16 @@ export const signups = pgTable('signups', {
   createdBy: uuid('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// App-wide preferences that are not per-admin. Singleton: one row, read by
+// everyone, written only by a super admin.
+export const appSettings = pgTable('app_settings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // 'folders' | 'list' — how the peer minister sign-ups page is laid out.
+  signupsLayout: text('signups_layout').notNull().default('folders'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
 });
 
 // Verification Codes Table (SMS login)
@@ -192,6 +221,14 @@ export const foldersRelations = relations(folders, ({ one, many }) => ({
 
 export const signupsRelations = relations(signups, ({ one }) => ({
   creator: one(users, { fields: [signups.createdBy], references: [users.id] }),
+  folder: one(signupFolders, {
+    fields: [signups.folderId],
+    references: [signupFolders.id],
+  }),
+}));
+
+export const signupFoldersRelations = relations(signupFolders, ({ many }) => ({
+  signups: many(signups),
 }));
 
 export const filesRelations = relations(files, ({ one }) => ({
@@ -226,3 +263,6 @@ export type SmsLog = typeof smsLog.$inferSelect;
 export type NewSmsLog = typeof smsLog.$inferInsert;
 export type Signup = typeof signups.$inferSelect;
 export type NewSignup = typeof signups.$inferInsert;
+export type SignupFolder = typeof signupFolders.$inferSelect;
+export type NewSignupFolder = typeof signupFolders.$inferInsert;
+export type AppSettings = typeof appSettings.$inferSelect;

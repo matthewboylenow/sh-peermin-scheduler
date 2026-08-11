@@ -8,13 +8,12 @@ import {
   hasAnySession,
   unauthorized,
 } from '@/lib/api-auth';
-import { SIGNUP_CATEGORY_VALUES } from '@/lib/signup-categories';
 
 const signupSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200),
   description: z.string().max(2000).optional().nullable(),
   url: z.string().url('Enter a valid link'),
-  category: z.enum(SIGNUP_CATEGORY_VALUES).default('peer_ministry'),
+  folderId: z.string().uuid().optional().nullable(),
   scheduleNote: z.string().max(300).optional().nullable(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
@@ -67,7 +66,7 @@ export async function POST(request: NextRequest) {
         title: data.title,
         description: data.description || null,
         url: data.url,
-        category: data.category,
+        folderId: data.folderId || null,
         scheduleNote: data.scheduleNote || null,
         sortOrder: data.sortOrder ?? 0,
         isActive: data.isActive ?? true,

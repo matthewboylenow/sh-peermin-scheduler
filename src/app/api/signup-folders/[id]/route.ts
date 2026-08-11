@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/db';
-import { signups } from '@/db/schema';
+import { signupFolders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAdminSession, unauthorized } from '@/lib/api-auth';
 
 const updateSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  description: z.string().max(2000).nullable().optional(),
-  url: z.string().url().optional(),
-  folderId: z.string().uuid().nullable().optional(),
-  scheduleNote: z.string().max(300).nullable().optional(),
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(500).nullable().optional(),
   sortOrder: z.number().int().optional(),
-  isActive: z.boolean().optional(),
 });
 
 export async function PUT(
@@ -29,13 +25,13 @@ export async function PUT(
     const data = updateSchema.parse(await request.json());
 
     const [updated] = await db
-      .update(signups)
+      .update(signupFolders)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(signups.id, id))
+      .where(eq(signupFolders.id, id))
       .returning();
 
     if (!updated) {
-      return NextResponse.json({ error: 'Sign-up not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
     }
 
     return NextResponse.json(updated);
@@ -46,14 +42,20 @@ export async function PUT(
         { status: 400 }
       );
     }
-    console.error('Error updating sign-up:', error);
+    console.error('Error updating sign-up folder:', error);
     return NextResponse.json(
-      { error: 'Failed to update sign-up' },
+      { error: 'Failed to update folder' },
       { status: 500 }
     );
   }
 }
 
+/**
+ * DELETE /api/signup-folders/:id
+ *
+ * The sign-ups inside survive — the foreign key nulls their folder, so they
+ * fall back to the top level rather than disappearing with the folder.
+ */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -65,13 +67,13 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await db.delete(signups).where(eq(signups.id, id));
+    await db.delete(signupFolders).where(eq(signupFolders.id, id));
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting sign-up:', error);
+    console.error('Error deleting sign-up folder:', error);
     return NextResponse.json(
-      { error: 'Failed to delete sign-up' },
+      { error: 'Failed to delete folder' },
       { status: 500 }
     );
   }

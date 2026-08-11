@@ -23,7 +23,9 @@ import {
   EyeOff,
   Check,
   AlertCircle,
+  FolderTree,
 } from "lucide-react";
+import type { SignupsLayout } from "@/lib/app-settings";
 
 // Sample data for SMS preview
 const SAMPLE_DATA = {
@@ -91,10 +93,50 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
 
+  // Sign-ups layout — super admin only
+  const isSuperAdmin = session?.user?.role === "super_admin";
+  const [signupsLayout, setSignupsLayout] = useState<SignupsLayout>("folders");
+  const [isSavingLayout, setIsSavingLayout] = useState(false);
+  const [layoutError, setLayoutError] = useState("");
+
   // Fetch SMS settings on mount
   useEffect(() => {
     fetchSmsSettings();
   }, []);
+
+  useEffect(() => {
+    fetch("/api/app-settings")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data?.signupsLayout) setSignupsLayout(data.signupsLayout);
+      })
+      .catch((error) => console.error("Error fetching app settings:", error));
+  }, []);
+
+  const saveSignupsLayout = async (layout: SignupsLayout) => {
+    const previous = signupsLayout;
+    setSignupsLayout(layout);
+    setIsSavingLayout(true);
+    setLayoutError("");
+    try {
+      const response = await fetch("/api/app-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signupsLayout: layout }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Could not save");
+      }
+    } catch (error) {
+      setSignupsLayout(previous);
+      setLayoutError(
+        error instanceof Error ? error.message : "Could not save"
+      );
+    } finally {
+      setIsSavingLayout(false);
+    }
+  };
 
   const fetchSmsSettings = async () => {
     try {
@@ -437,6 +479,82 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Sign-ups layout — a judgement call about what teens find fastest, so
+          it stays adjustable without a deploy. Super admins only: it changes
+          what every peer minister sees. */}
+      {isSuperAdmin && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-navy/10 flex items-center justify-center">
+                <FolderTree className="h-5 w-5 text-navy" />
+              </div>
+              <div>
+                <CardTitle>Sign-Ups Page Layout</CardTitle>
+                <CardDescription>
+                  How peer ministers see the sign-ups page on their phones
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {layoutError && (
+              <div
+                role="alert"
+                className="flex items-center gap-2 rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error"
+              >
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                {layoutError}
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    value: "folders" as const,
+                    title: "Folders",
+                    hint: "Tap a folder to see the sign-ups inside. Fewer things on screen at once.",
+                  },
+                  {
+                    value: "list" as const,
+                    title: "One long list",
+                    hint: "Every sign-up on one page, with folder names as headings. Nothing to tap into.",
+                  },
+                ]
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={isSavingLayout}
+                  onClick={() => saveSignupsLayout(option.value)}
+                  className={`rounded-xl border-2 p-4 text-left transition-colors disabled:opacity-60 ${
+                    signupsLayout === option.value
+                      ? "border-navy bg-navy/5"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 font-medium text-gray-900">
+                    {option.title}
+                    {signupsLayout === option.value && (
+                      <Check className="h-4 w-4 text-navy" />
+                    )}
+                  </span>
+                  <span className="mt-1 block text-sm text-gray-500">
+                    {option.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <p className="text-xs text-gray-500">
+              Applies to everyone straight away. Folders are managed under
+              Sign-Ups.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Security / Password Change */}
       <Card>
