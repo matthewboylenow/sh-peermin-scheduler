@@ -1,5 +1,6 @@
 import { db } from '@/db';
 import { appSettings } from '@/db/schema';
+import { asc } from 'drizzle-orm';
 
 /**
  * App-wide preferences, stored as a single row.
@@ -20,14 +21,43 @@ export function isSignupsLayout(value: unknown): value is SignupsLayout {
 }
 
 /**
+ * Fixed id for the one settings row.
+ *
+ * The row is created lazily on first read, so a cold deploy can have several
+ * requests racing to create it. Inserting a known id instead of a random one
+ * turns that race into a primary key conflict the database resolves for us:
+ * one insert wins, the rest do nothing, and there is exactly one row.
+ */
+const SINGLETON_ID = '00000000-0000-4000-8000-0000000000a5';
+
+/**
  * Read the settings row, creating it on first use so the rest of the app never
  * has to deal with "no row yet".
+ *
+ * Ordered by id rather than left to the planner. There should only ever be one
+ * row, but if an older deploy left a stray one behind, a stable ordering means
+ * reads and writes still agree on which is authoritative — otherwise the
+ * toggle could appear not to stick.
  */
 export async function getAppSettings() {
-  const existing = await db.query.appSettings.findFirst();
+  const existing = await db.query.appSettings.findFirst({
+    orderBy: [asc(appSettings.id)],
+  });
   if (existing) return existing;
 
-  const [created] = await db.insert(appSettings).values({}).returning();
+  await db
+    .insert(appSettings)
+    .values({ id: SINGLETON_ID })
+    .onConflictDoNothing();
+
+  // Re-read rather than trusting the insert: if another request won the race,
+  // ours did nothing and this returns theirs.
+  const created = await db.query.appSettings.findFirst({
+    orderBy: [asc(appSettings.id)],
+  });
+  if (!created) {
+    throw new Error('Could not create the app settings row');
+  }
   return created;
 }
 
