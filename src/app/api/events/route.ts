@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { events, slots } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { z } from 'zod';
+import { timeField } from '@/lib/time-field';
 import { addDays, addWeeks, addMonths, parseISO, format } from 'date-fns';
 
 const createEventSchema = z.object({
@@ -12,8 +13,8 @@ const createEventSchema = z.object({
   description: z.string().optional(),
   eventType: z.enum(['mass', 'clow', 'volunteer', 'ministry', 'other']),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  startTime: timeField,
+  endTime: timeField.optional(),
   location: z.string().optional(),
   signupUrl: z.string().url().optional().or(z.literal('')),
   signupSource: z.enum(['signupgenius', 'manual']).optional(),

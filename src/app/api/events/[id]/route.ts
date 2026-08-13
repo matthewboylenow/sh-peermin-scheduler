@@ -4,14 +4,15 @@ import { db } from '@/db';
 import { events, slots, assignments } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { timeField } from '@/lib/time-field';
 
 const updateEventSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   eventType: z.enum(['mass', 'clow', 'volunteer', 'ministry', 'other']).optional(),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  startTime: timeField.optional(),
+  endTime: timeField.optional().nullable(),
   location: z.string().optional().nullable(),
   signupUrl: z.string().url().nullable().optional().or(z.literal('')),
   signupSource: z.enum(['signupgenius', 'manual']).nullable().optional(),
