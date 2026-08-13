@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Saint Helen Peer Ministry">
+  <rect width="512" height="512" rx="112" fill="#1F346D"/>
+  <rect x="64" y="64" width="384" height="384" rx="56" fill="#FAF9F7"/>
+  <g fill="#CD5334">
+    <rect x="224" y="110" width="64" height="292" rx="11"/>
+    <rect x="142" y="180" width="228" height="64" rx="11"/>
+  </g>
+</svg>
