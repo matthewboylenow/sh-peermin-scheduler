@@ -47,14 +47,34 @@ function VerifyPageContent() {
   }, [resendTimer]);
 
   const handleChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
+    const digits = value.replace(/\D/g, "");
+    if (value && !digits) return;
 
     const newCode = [...code];
-    newCode[index] = value.slice(-1);
+
+    // Phones deliver the whole code at once when the user taps the "From
+    // Messages" suggestion above the keyboard. That arrives as an ordinary
+    // input event carrying all six digits — not as a paste — so it has to be
+    // spread across the boxes. Keeping only one character here is what made a
+    // single tap leave one stray digit behind.
+    if (digits.length > 1) {
+      const spread = digits.slice(0, 6 - index).split("");
+      spread.forEach((digit, offset) => {
+        newCode[index + offset] = digit;
+      });
+      setCode(newCode);
+      inputRefs.current[Math.min(index + spread.length, 5)]?.focus();
+      if (newCode.every((digit) => digit)) {
+        handleSubmit(newCode.join(""));
+      }
+      return;
+    }
+
+    newCode[index] = digits;
     setCode(newCode);
 
     // Auto-focus next input
-    if (value && index < 5) {
+    if (digits && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
@@ -183,6 +203,10 @@ function VerifyPageContent() {
                     }}
                     type="text"
                     inputMode="numeric"
+                    // Lets iOS and Android offer the code from the incoming
+                    // text as a one-tap suggestion. Only the first box carries
+                    // it; the handler spreads the digits across the rest.
+                    autoComplete={index === 0 ? "one-time-code" : "off"}
                     maxLength={1}
                     value={digit}
                     onChange={(e) => handleChange(index, e.target.value)}

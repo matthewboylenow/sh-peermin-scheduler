@@ -42,6 +42,15 @@ export function PeerLoginForm() {
 
       const data = await response.json();
 
+      // 429 means a code went out moments ago and the server is refusing to
+      // send a second one. That code is still valid and sitting in their
+      // messages, so the right move is the code screen — not an error that
+      // strands them here. Easy to hit: send a code, tap back, try again.
+      if (response.status === 429) {
+        router.push(`/verify?phone=${encodeURIComponent(phoneDigits)}`);
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to send code");
       }
