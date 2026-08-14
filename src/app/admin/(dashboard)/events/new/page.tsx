@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,8 +28,9 @@ interface SlotInput {
   notes: string;
 }
 
-export default function NewEventPage() {
+function NewEventForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,7 +38,12 @@ export default function NewEventPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [eventType, setEventType] = useState("mass");
-  const [eventDate, setEventDate] = useState("");
+  // Arriving from a day on the schedule prefills that day, so the date can't
+  // be mistyped and a second event on an already-busy day starts correct.
+  const [eventDate, setEventDate] = useState(() => {
+    const fromUrl = searchParams.get("date");
+    return fromUrl && /^\d{4}-\d{2}-\d{2}$/.test(fromUrl) ? fromUrl : "";
+  });
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
@@ -409,5 +415,14 @@ export default function NewEventPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary to keep this route prerenderable.
+export default function NewEventPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewEventForm />
+    </Suspense>
   );
 }

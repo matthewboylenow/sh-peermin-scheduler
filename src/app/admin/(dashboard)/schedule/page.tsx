@@ -26,6 +26,7 @@ import {
   Calendar as CalendarIcon,
   Clock,
   MapPin,
+  Plus,
   Users,
 } from "lucide-react";
 
@@ -292,7 +293,11 @@ export default function SchedulePage() {
                 <CalendarIcon className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                 <p className="text-sm text-gray-500">No events on this day</p>
                 <Button asChild className="mt-4" size="sm">
-                  <Link href="/admin/events/new">Add Event</Link>
+                  <Link
+                    href={`/admin/events/new?date=${format(selectedDate, "yyyy-MM-dd")}`}
+                  >
+                    Add Event
+                  </Link>
                 </Button>
               </div>
             ) : (
@@ -342,6 +347,19 @@ export default function SchedulePage() {
                     </div>
                   </Link>
                 ))}
+
+                {/* A day that already has something on it still needs this.
+                    Without it the only Add Event button lived on empty days,
+                    which reads as "one event per date" — the calendar has
+                    never had such a limit. */}
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link
+                    href={`/admin/events/new?date=${format(selectedDate, "yyyy-MM-dd")}`}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add another event on this day
+                  </Link>
+                </Button>
               </div>
             )}
           </CardContent>
