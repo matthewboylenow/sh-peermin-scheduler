@@ -20,6 +20,23 @@ const createEventSchema = z.object({
   signupSource: z.enum(['signupgenius', 'manual']).optional(),
   recurrenceType: z.enum(['none', 'daily', 'weekly', 'biweekly', 'monthly']).default('none'),
   recurrenceEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  // Extra dates for the same event, each carrying its own time.
+  //
+  // The built-in recurrence has never once been used here: the real schedule
+  // is "Sep 20, Oct 18, Nov 1, Nov 15" or "Mon and Wed at 3:45, Tue at 6:45",
+  // which no daily/weekly rule expresses. These become ordinary standalone
+  // events — not recurrence children — so editing or deleting one never
+  // silently changes the others.
+  additionalDates: z
+    .array(
+      z.object({
+        eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
+        startTime: timeField,
+        endTime: timeField.optional().nullable(),
+      })
+    )
+    .max(100, 'That is more dates than one event should carry')
+    .optional(),
   slots: z.array(z.object({
     name: z.string().min(1),
     capacity: z.number().int().positive().default(1),
@@ -96,7 +113,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createEventSchema.parse(body);
 
-    const { slots: eventSlots, recurrenceType, recurrenceEndDate, ...rest } = validatedData;
+    const {
+      slots: eventSlots,
+      recurrenceType,
+      recurrenceEndDate,
+      additionalDates,
+      ...rest
+    } = validatedData;
+
+    // Two ways to say "more than once" would quietly multiply together.
+    if (additionalDates?.length && recurrenceType !== 'none') {
+      return NextResponse.json(
+        {
+          error:
+            'Pick either several dates or a repeating pattern, not both.',
+        },
+        { status: 400 }
+      );
+    }
 
     // An empty sign-up URL means "no opportunity link", not an empty string.
     const eventData = {
@@ -182,10 +216,41 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Extra dates, each standing on its own — same details, its own time, no
+    // parent link. Deleting or editing one leaves the rest alone.
+    const extraEvents = [];
+    for (const entry of additionalDates ?? []) {
+      const [extra] = await db
+        .insert(events)
+        .values({
+          ...eventData,
+          eventDate: entry.eventDate,
+          startTime: entry.startTime,
+          endTime: entry.endTime || null,
+          recurrenceType: 'none',
+          createdBy: session.user.id,
+        })
+        .returning();
+
+      extraEvents.push(extra);
+
+      if (eventSlots && eventSlots.length > 0) {
+        await db.insert(slots).values(
+          eventSlots.map((slot) => ({
+            eventId: extra.id,
+            name: slot.name,
+            capacity: slot.capacity,
+            notes: slot.notes || null,
+          }))
+        );
+      }
+    }
+
     return NextResponse.json({
       event: parentEvent,
       childEvents,
-      totalCreated: 1 + childEvents.length,
+      extraEvents,
+      totalCreated: 1 + childEvents.length + extraEvents.length,
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating event:', error);

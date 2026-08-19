@@ -28,6 +28,13 @@ interface SlotInput {
   notes: string;
 }
 
+/** One more occurrence of the same event, with its own time. */
+interface DateEntry {
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+}
+
 function NewEventForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,6 +60,7 @@ function NewEventForm() {
   );
   const [recurrenceType, setRecurrenceType] = useState("none");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
+  const [extraDates, setExtraDates] = useState<DateEntry[]>([]);
   const [slots, setSlots] = useState<SlotInput[]>([
     { name: "", capacity: 1, notes: "" },
   ]);
@@ -68,6 +76,45 @@ function NewEventForm() {
     setSignupUrl(result.signupUrl);
     setSignupSource("signupgenius");
     setEventType("volunteer");
+  };
+
+  const totalDates = 1 + extraDates.length;
+
+  /**
+   * New rows inherit the previous date's times and land a week later, since
+   * that is the common case; both are editable and neither is enforced.
+   */
+  const addExtraDate = () => {
+    const previous = extraDates[extraDates.length - 1];
+    const baseDate = previous?.eventDate || eventDate;
+    let nextDate = "";
+    if (baseDate) {
+      const d = new Date(`${baseDate}T12:00:00`);
+      d.setDate(d.getDate() + 7);
+      nextDate = d.toISOString().slice(0, 10);
+    }
+    setExtraDates([
+      ...extraDates,
+      {
+        eventDate: nextDate,
+        startTime: previous?.startTime || startTime,
+        endTime: previous?.endTime || endTime,
+      },
+    ]);
+  };
+
+  const updateExtraDate = (
+    index: number,
+    field: keyof DateEntry,
+    value: string
+  ) => {
+    const next = [...extraDates];
+    next[index] = { ...next[index], [field]: value };
+    setExtraDates(next);
+  };
+
+  const removeExtraDate = (index: number) => {
+    setExtraDates(extraDates.filter((_, i) => i !== index));
   };
 
   const addSlot = () => {
@@ -105,8 +152,19 @@ function NewEventForm() {
           location: location || undefined,
           signupUrl: signupUrl || undefined,
           signupSource: signupUrl ? signupSource : undefined,
-          recurrenceType,
-          recurrenceEndDate: recurrenceType !== "none" ? recurrenceEndDate : undefined,
+          recurrenceType: extraDates.length > 0 ? "none" : recurrenceType,
+          recurrenceEndDate:
+            extraDates.length === 0 && recurrenceType !== "none"
+              ? recurrenceEndDate
+              : undefined,
+          additionalDates:
+            extraDates.length > 0
+              ? extraDates.map((entry) => ({
+                  eventDate: entry.eventDate,
+                  startTime: entry.startTime,
+                  endTime: entry.endTime || undefined,
+                }))
+              : undefined,
           slots: validSlots.length > 0 ? validSlots : undefined,
         }),
       });
@@ -117,7 +175,13 @@ function NewEventForm() {
       }
 
       const data = await response.json();
-      router.push(`/admin/events/${data.event.id}`);
+      // With several dates there is no single event to land on, so show them
+      // all in the list rather than picking one arbitrarily.
+      router.push(
+        data.totalCreated > 1
+          ? "/admin/events"
+          : `/admin/events/${data.event.id}`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -278,7 +342,7 @@ function NewEventForm() {
               </div>
             </div>
 
-            {startTime && (
+            {startTime && extraDates.length === 0 && (
               <p className="text-sm text-gray-500">
                 Peer ministers will see{" "}
                 <span className="font-medium text-gray-700">
@@ -287,15 +351,121 @@ function NewEventForm() {
                 .
               </p>
             )}
+
+            {/* More dates for the same event. Each keeps its own time, because
+                the same session often runs after school one day and in the
+                evening the next. */}
+            {extraDates.length > 0 && (
+              <div className="space-y-3 border-t border-gray-200 pt-4">
+                <p className="text-sm font-medium text-gray-700">
+                  More dates for this event
+                </p>
+                {extraDates.map((entry, index) => (
+                  <div
+                    key={index}
+                    className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"
+                  >
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor={`extraDate-${index}`}
+                        className="text-xs text-gray-500"
+                      >
+                        Date *
+                      </Label>
+                      <Input
+                        id={`extraDate-${index}`}
+                        type="date"
+                        value={entry.eventDate}
+                        onChange={(e) =>
+                          updateExtraDate(index, "eventDate", e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor={`extraStart-${index}`}
+                        className="text-xs text-gray-500"
+                      >
+                        Start *
+                      </Label>
+                      <Input
+                        id={`extraStart-${index}`}
+                        type="time"
+                        value={entry.startTime}
+                        onChange={(e) =>
+                          updateExtraDate(index, "startTime", e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor={`extraEnd-${index}`}
+                        className="text-xs text-gray-500"
+                      >
+                        End
+                      </Label>
+                      <Input
+                        id={`extraEnd-${index}`}
+                        type="time"
+                        value={entry.endTime}
+                        onChange={(e) =>
+                          updateExtraDate(index, "endTime", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeExtraDate(index)}
+                        aria-label={`Remove date ${index + 2}`}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addExtraDate}
+                disabled={!eventDate || !startTime}
+              >
+                <Plus className="h-4 w-4" />
+                Add another date
+              </Button>
+              {!eventDate || !startTime ? (
+                <span className="text-xs text-gray-500">
+                  Set the first date and start time first.
+                </span>
+              ) : (
+                <span className="text-sm text-gray-500">
+                  {totalDates === 1
+                    ? "Saving will create 1 event."
+                    : `Saving will create ${totalDates} events — same details, these ${totalDates} dates.`}
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Recurrence */}
-        <Card>
+        {/* Recurrence — hidden once dates are listed by hand, since the two
+            ways of repeating would multiply together. */}
+        <Card className={extraDates.length > 0 ? "hidden" : ""}>
           <CardHeader>
             <CardTitle>Recurrence</CardTitle>
             <CardDescription>
-              Create multiple instances of this event
+              For an event on a strict cycle. For scattered dates, use
+              &ldquo;Add another date&rdquo; above instead.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
