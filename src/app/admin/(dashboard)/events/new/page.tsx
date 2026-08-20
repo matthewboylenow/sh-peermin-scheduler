@@ -45,7 +45,11 @@ function NewEventForm() {
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [eventType, setEventType] = useState("mass");
+  // Ministry, not Mass. Mass sat first in the list and was the default, so
+  // anything created without touching this field came out labelled Mass —
+  // EDGE, Spark and the large groups all did, and had to be re-tagged by hand.
+  // Ministry covers most of what actually gets scheduled.
+  const [eventType, setEventType] = useState("ministry");
   // Arriving from a day on the schedule prefills that day, so the date can't
   // be mistyped and a second event on an already-busy day starts correct.
   const [eventDate, setEventDate] = useState(() => {
