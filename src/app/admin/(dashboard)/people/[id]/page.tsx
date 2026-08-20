@@ -27,10 +27,7 @@ import {
   History,
 } from "lucide-react";
 import {
-  EVENT_TYPES,
-  eventTypeBadge,
   eventTypeDot,
-  eventTypeLabel,
 } from "@/lib/event-types";
 
 interface Assignment {

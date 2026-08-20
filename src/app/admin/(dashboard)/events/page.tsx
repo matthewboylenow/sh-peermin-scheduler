@@ -18,7 +18,6 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   EVENT_TYPES,
   eventTypeBadge,
-  eventTypeDot,
   eventTypeLabel,
 } from "@/lib/event-types";
 import {

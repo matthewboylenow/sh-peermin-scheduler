@@ -52,6 +52,17 @@ export async function GET(request: NextRequest) {
                 endTime: true,
                 location: true,
               },
+              // Peer ministers see the flyer for what they're assigned to.
+              with: {
+                flyer: {
+                  columns: {
+                    id: true,
+                    name: true,
+                    fileType: true,
+                    fileSize: true,
+                  },
+                },
+              },
             },
           },
         },

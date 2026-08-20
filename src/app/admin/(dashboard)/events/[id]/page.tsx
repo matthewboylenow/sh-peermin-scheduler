@@ -16,10 +16,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { EventFlyer, type FlyerFile } from "@/components/events/EventFlyer";
 import {
-  EVENT_TYPES,
   eventTypeBadge,
-  eventTypeDot,
   eventTypeLabel,
 } from "@/lib/event-types";
 import {
@@ -71,6 +70,7 @@ interface Event {
   endTime: string | null;
   location: string | null;
   signupUrl: string | null;
+  flyer: FlyerFile | null;
   recurrenceType: string;
   slots: Slot[];
   creator: {
@@ -385,6 +385,12 @@ export default function EventDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <EventFlyer
+        eventId={event.id}
+        flyer={event.flyer}
+        onChange={fetchEvent}
+      />
 
       {event.signupUrl && (
         <Card className="border-rust/30 bg-rust/5">

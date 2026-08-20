@@ -10,9 +10,19 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { Calendar, Clock, MapPin, CheckCircle, AlertCircle } from "lucide-react";
 import {
-  EVENT_TYPES,
+  Calendar,
+  Clock,
+  MapPin,
+  CheckCircle,
+  AlertCircle,
+  Image as ImageIcon,
+} from "lucide-react";
+import {
+  FilePreviewDialog,
+  type PreviewableFile,
+} from "@/components/files/FilePreviewDialog";
+import {
   eventTypeBadge,
   eventTypeDot,
   eventTypeLabel,
@@ -31,6 +41,12 @@ interface Assignment {
       startTime: string;
       endTime: string | null;
       location: string | null;
+      flyer: {
+        id: string;
+        name: string;
+        fileType: string;
+        fileSize: number;
+      } | null;
     };
   };
 }
@@ -38,6 +54,7 @@ interface Assignment {
 export default function MySchedulePage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [flyer, setFlyer] = useState<PreviewableFile | null>(null);
 
   useEffect(() => {
     fetchAssignments();
@@ -202,6 +219,18 @@ export default function MySchedulePage() {
                         <span>{assignment.slot.event.location}</span>
                       )}
                     </div>
+                    {assignment.slot.event.flyer && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFlyer(assignment.slot.event.flyer)
+                        }
+                        className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline"
+                      >
+                        <ImageIcon className="h-4 w-4" />
+                        View flyer
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -249,6 +278,7 @@ export default function MySchedulePage() {
           </CardContent>
         </Card>
       )}
+      <FilePreviewDialog file={flyer} onClose={() => setFlyer(null)} />
     </div>
   );
 }
