@@ -16,6 +16,12 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  EVENT_TYPES,
+  eventTypeBadge,
+  eventTypeDot,
+  eventTypeLabel,
+} from "@/lib/event-types";
+import {
   Plus,
   Search,
   Calendar,
@@ -45,22 +51,6 @@ interface Event {
   signupUrl: string | null;
   slots: Slot[];
 }
-
-const eventTypeColors: Record<string, string> = {
-  mass: "bg-navy text-white",
-  clow: "bg-rust text-white",
-  volunteer: "bg-success text-white",
-  ministry: "bg-info text-white",
-  other: "bg-gray-500 text-white",
-};
-
-const eventTypeLabels: Record<string, string> = {
-  mass: "Mass",
-  clow: "CLOW",
-  volunteer: "Volunteer",
-  ministry: "Ministry",
-  other: "Other",
-};
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -142,11 +132,11 @@ export default function EventsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="mass">Mass</SelectItem>
-                <SelectItem value="clow">CLOW</SelectItem>
-                <SelectItem value="volunteer">Volunteer</SelectItem>
-                <SelectItem value="ministry">Ministry</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                {EVENT_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -210,9 +200,9 @@ export default function EventsPage() {
                           {event.title}
                         </h3>
                         <Badge
-                          className={eventTypeColors[event.eventType] || ""}
+                          className={eventTypeBadge(event.eventType)}
                         >
-                          {eventTypeLabels[event.eventType] || event.eventType}
+                          {eventTypeLabel(event.eventType)}
                         </Badge>
                         {event.signupUrl && (
                           <Badge variant="secondary" className="gap-1">

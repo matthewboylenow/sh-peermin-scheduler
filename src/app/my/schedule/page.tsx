@@ -11,6 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Calendar, Clock, MapPin, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  EVENT_TYPES,
+  eventTypeBadge,
+  eventTypeDot,
+  eventTypeLabel,
+} from "@/lib/event-types";
 
 interface Assignment {
   id: string;
@@ -28,22 +34,6 @@ interface Assignment {
     };
   };
 }
-
-const eventTypeLabels: Record<string, string> = {
-  mass: "Mass",
-  clow: "CLOW",
-  volunteer: "Volunteer",
-  ministry: "Ministry",
-  other: "Other",
-};
-
-const eventTypeColors: Record<string, string> = {
-  mass: "bg-navy",
-  clow: "bg-rust",
-  volunteer: "bg-success",
-  ministry: "bg-info",
-  other: "bg-gray-500",
-};
 
 export default function MySchedulePage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -119,7 +109,7 @@ export default function MySchedulePage() {
           <CardContent>
             <div className="flex items-start gap-3 sm:gap-4">
               <div
-                className={`w-1.5 self-stretch min-h-16 flex-shrink-0 rounded-full ${eventTypeColors[nextAssignment.slot.event.eventType]}`}
+                className={`w-1.5 self-stretch min-h-16 flex-shrink-0 rounded-full ${eventTypeDot(nextAssignment.slot.event.eventType)}`}
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -127,11 +117,11 @@ export default function MySchedulePage() {
                     {nextAssignment.slot.event.title}
                   </h3>
                   <Badge
-                    className={
-                      eventTypeColors[nextAssignment.slot.event.eventType]
-                    }
+                    className={eventTypeBadge(
+                      nextAssignment.slot.event.eventType
+                    )}
                   >
-                    {eventTypeLabels[nextAssignment.slot.event.eventType]}
+                    {eventTypeLabel(nextAssignment.slot.event.eventType)}
                   </Badge>
                 </div>
                 <p className="text-navy font-medium">
@@ -189,7 +179,7 @@ export default function MySchedulePage() {
                   }`}
                 >
                   <div
-                    className={`w-1 h-14 flex-shrink-0 rounded-full ${eventTypeColors[assignment.slot.event.eventType]}`}
+                    className={`w-1 h-14 flex-shrink-0 rounded-full ${eventTypeDot(assignment.slot.event.eventType)}`}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -237,7 +227,7 @@ export default function MySchedulePage() {
                   className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 opacity-75"
                 >
                   <div
-                    className={`w-1 h-10 rounded-full ${eventTypeColors[assignment.slot.event.eventType]} opacity-50`}
+                    className={`w-1 h-10 rounded-full ${eventTypeDot(assignment.slot.event.eventType)} opacity-50`}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-700">

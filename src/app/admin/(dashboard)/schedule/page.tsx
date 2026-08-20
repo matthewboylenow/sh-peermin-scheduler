@@ -21,6 +21,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  EVENT_TYPES,
+  eventTypeBadge,
+  eventTypeDot,
+  eventTypeLabel,
+} from "@/lib/event-types";
+import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
@@ -48,22 +54,6 @@ interface Event {
   location: string | null;
   slots: Slot[];
 }
-
-const eventTypeColors: Record<string, string> = {
-  mass: "bg-navy",
-  clow: "bg-rust",
-  volunteer: "bg-success",
-  ministry: "bg-info",
-  other: "bg-gray-500",
-};
-
-const eventTypeLabels: Record<string, string> = {
-  mass: "Mass",
-  clow: "CLOW",
-  volunteer: "Volunteer",
-  ministry: "Ministry",
-  other: "Other",
-};
 
 export default function SchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -252,7 +242,7 @@ export default function SchedulePage() {
                               key={event.id}
                               className={`
                                 text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded truncate text-white
-                                ${eventTypeColors[event.eventType]}
+                                ${eventTypeBadge(event.eventType)}
                               `}
                               title={event.title}
                             >
@@ -310,7 +300,7 @@ export default function SchedulePage() {
                   >
                     <div className="flex items-start gap-3">
                       <div
-                        className={`w-1 h-full min-h-12 rounded-full flex-shrink-0 ${eventTypeColors[event.eventType]}`}
+                        className={`w-1 h-full min-h-12 rounded-full flex-shrink-0 ${eventTypeBadge(event.eventType)}`}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -318,7 +308,7 @@ export default function SchedulePage() {
                             {event.title}
                           </h4>
                           <Badge variant="secondary" className="text-xs">
-                            {eventTypeLabels[event.eventType]}
+                            {eventTypeLabel(event.eventType)}
                           </Badge>
                         </div>
 
@@ -371,12 +361,10 @@ export default function SchedulePage() {
         <CardContent className="py-4">
           <div className="flex flex-wrap items-center gap-4">
             <span className="text-sm text-gray-500">Event Types:</span>
-            {Object.entries(eventTypeLabels).map(([key, label]) => (
-              <div key={key} className="flex items-center gap-2">
-                <div
-                  className={`w-3 h-3 rounded-full ${eventTypeColors[key]}`}
-                />
-                <span className="text-sm text-gray-600">{label}</span>
+            {EVENT_TYPES.map((type) => (
+              <div key={type.value} className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${type.dot}`} />
+                <span className="text-sm text-gray-600">{type.label}</span>
               </div>
             ))}
           </div>

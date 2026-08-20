@@ -17,6 +17,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  EVENT_TYPES,
+  eventTypeBadge,
+  eventTypeDot,
+  eventTypeLabel,
+} from "@/lib/event-types";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -79,22 +85,6 @@ interface PeerMinister {
   name: string;
   phone: string;
 }
-
-const eventTypeColors: Record<string, string> = {
-  mass: "bg-navy text-white",
-  clow: "bg-rust text-white",
-  volunteer: "bg-success text-white",
-  ministry: "bg-info text-white",
-  other: "bg-gray-500 text-white",
-};
-
-const eventTypeLabels: Record<string, string> = {
-  mass: "Mass",
-  clow: "CLOW",
-  volunteer: "Volunteer",
-  ministry: "Ministry",
-  other: "Other",
-};
 
 export default function EventDetailPage({
   params,
@@ -313,8 +303,8 @@ export default function EventDetailPage({
               <h1 className="font-heading text-2xl sm:text-3xl font-bold text-navy">
                 {event.title}
               </h1>
-              <Badge className={eventTypeColors[event.eventType] || ""}>
-                {eventTypeLabels[event.eventType] || event.eventType}
+              <Badge className={eventTypeBadge(event.eventType)}>
+                {eventTypeLabel(event.eventType)}
               </Badge>
             </div>
             {event.description && (

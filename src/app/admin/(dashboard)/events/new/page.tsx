@@ -21,6 +21,7 @@ import {
   type ImportedOpportunity,
 } from "@/components/events/SignUpGeniusImport";
 import { formatTimeRange } from "@/lib/datetime";
+import { EVENT_TYPES } from "@/lib/event-types";
 
 interface SlotInput {
   name: string;
@@ -252,11 +253,11 @@ function NewEventForm() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="mass">Mass</SelectItem>
-                    <SelectItem value="clow">CLOW</SelectItem>
-                    <SelectItem value="volunteer">Volunteer</SelectItem>
-                    <SelectItem value="ministry">Ministry</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    {EVENT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

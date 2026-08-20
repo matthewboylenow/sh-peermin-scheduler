@@ -5,17 +5,19 @@ import { events, slots, assignments } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { timeField } from '@/lib/time-field';
+import { EVENT_TYPE_VALUES } from '@/lib/event-types';
 
 const updateEventSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  eventType: z.enum(['mass', 'clow', 'volunteer', 'ministry', 'other']).optional(),
+  eventType: z.enum(EVENT_TYPE_VALUES).optional(),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   startTime: timeField.optional(),
   endTime: timeField.optional().nullable(),
   location: z.string().optional().nullable(),
   signupUrl: z.string().url().nullable().optional().or(z.literal('')),
   signupSource: z.enum(['signupgenius', 'manual']).nullable().optional(),
+  flyerFileId: z.string().uuid().nullable().optional(),
   updateFutureInstances: z.boolean().optional(),
 });
 
@@ -30,6 +32,7 @@ export async function GET(
     const event = await db.query.events.findFirst({
       where: eq(events.id, id),
       with: {
+        flyer: true,
         slots: {
           with: {
             assignments: {

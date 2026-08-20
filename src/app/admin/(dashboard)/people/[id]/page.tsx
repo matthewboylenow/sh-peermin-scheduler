@@ -26,6 +26,12 @@ import {
   UserCheck,
   History,
 } from "lucide-react";
+import {
+  EVENT_TYPES,
+  eventTypeBadge,
+  eventTypeDot,
+  eventTypeLabel,
+} from "@/lib/event-types";
 
 interface Assignment {
   id: string;
@@ -53,14 +59,6 @@ interface PeerMinister {
   createdAt: string;
   assignments: Assignment[];
 }
-
-const eventTypeColors: Record<string, string> = {
-  mass: "bg-navy",
-  clow: "bg-rust",
-  volunteer: "bg-success",
-  ministry: "bg-info",
-  other: "bg-gray-500",
-};
 
 export default function PersonDetailPage({
   params,
@@ -415,7 +413,7 @@ export default function PersonDetailPage({
                       className="flex items-center gap-4 p-3 rounded-lg border border-gray-200 hover:border-navy/30 hover:shadow-sm transition-all"
                     >
                       <div
-                        className={`w-1 h-12 rounded-full ${eventTypeColors[assignment.slot.event.eventType]}`}
+                        className={`w-1 h-12 rounded-full ${eventTypeDot(assignment.slot.event.eventType)}`}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate">
@@ -468,7 +466,7 @@ export default function PersonDetailPage({
                       className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-all opacity-75"
                     >
                       <div
-                        className={`w-1 h-12 rounded-full ${eventTypeColors[assignment.slot.event.eventType]} opacity-50`}
+                        className={`w-1 h-12 rounded-full ${eventTypeDot(assignment.slot.event.eventType)} opacity-50`}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-700 truncate">

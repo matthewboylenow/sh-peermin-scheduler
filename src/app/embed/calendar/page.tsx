@@ -15,6 +15,7 @@ import {
 } from "date-fns";
 import { ChevronLeft, ChevronRight, Clock, MapPin, X } from "lucide-react";
 import { formatEventDate, formatTimeRange } from "@/lib/datetime";
+import { eventTypeDot } from "@/lib/event-types";
 
 interface PublicEvent {
   id: string;
@@ -27,14 +28,6 @@ interface PublicEvent {
   location: string | null;
   signupUrl: string | null;
 }
-
-const TYPE_DOT: Record<string, string> = {
-  mass: "bg-navy",
-  clow: "bg-rust",
-  volunteer: "bg-emerald-600",
-  ministry: "bg-sky-600",
-  other: "bg-gray-500",
-};
 
 /**
  * Public month calendar, built to be dropped into the parish website in an
@@ -204,7 +197,7 @@ export default function EmbedCalendarPage() {
                       >
                         <span
                           className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                            TYPE_DOT[event.eventType] ?? TYPE_DOT.other
+                            eventTypeDot(event.eventType)
                           }`}
                         />
                         <span className="truncate text-[10px] font-medium text-navy sm:text-[11px]">

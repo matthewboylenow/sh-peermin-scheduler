@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm';
 
 // Enums
 export const userRoleEnum = pgEnum('user_role', ['super_admin', 'admin', 'peer_minister']);
-export const eventTypeEnum = pgEnum('event_type', ['mass', 'clow', 'volunteer', 'ministry', 'other']);
+export const eventTypeEnum = pgEnum('event_type', ['mass', 'clow', 'volunteer', 'ministry', 'other', 'adoration', 'service']);
 export const recurrenceTypeEnum = pgEnum('recurrence_type', ['none', 'daily', 'weekly', 'biweekly', 'monthly']);
 
 // Users Table
@@ -36,6 +36,12 @@ export const events = pgTable('events', {
   // surfaced to peer ministers as a self-serve volunteer opportunity.
   signupUrl: text('signup_url'),
   signupSource: text('signup_source'), // 'signupgenius' | 'manual' | null
+  // Promotional flyer. Points at an ordinary uploaded file so it reuses the
+  // authenticated blob proxy, the in-app viewer and the upload size limits
+  // rather than growing a second, parallel upload path.
+  flyerFileId: uuid('flyer_file_id').references((): AnyPgColumn => files.id, {
+    onDelete: 'set null',
+  }),
   // Recurrence fields
   recurrenceType: recurrenceTypeEnum('recurrence_type').notNull().default('none'),
   recurrenceEndDate: date('recurrence_end_date'), // When recurrence stops
@@ -199,6 +205,7 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
   slots: many(slots),
   parentEvent: one(events, { fields: [events.parentEventId], references: [events.id], relationName: 'eventRecurrence' }),
   childEvents: many(events, { relationName: 'eventRecurrence' }),
+  flyer: one(files, { fields: [events.flyerFileId], references: [files.id] }),
 }));
 
 export const slotsRelations = relations(slots, ({ one, many }) => ({
