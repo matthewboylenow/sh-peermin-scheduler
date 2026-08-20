@@ -5,6 +5,7 @@ import { assignments, slots, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getPeerSession } from '@/lib/peer-session';
+import { unauthorized } from '@/lib/api-auth';
 
 const createAssignmentSchema = z.object({
   slotId: z.string().uuid(),
@@ -24,6 +25,14 @@ export async function GET(request: NextRequest) {
     // Check for admin or peer session
     const adminSession = await auth();
     const peerSession = await getPeerSession();
+
+    // Every row here carries a peer minister's name and phone number, and
+    // they are minors. Both sessions being absent used to fall through to an
+    // unfiltered read, so an anonymous GET returned the whole roster's
+    // assignments.
+    if (!adminSession?.user?.id && !peerSession) {
+      return unauthorized();
+    }
 
     // If peer minister is logged in, only show their assignments
     if (peerSession && !adminSession) {
