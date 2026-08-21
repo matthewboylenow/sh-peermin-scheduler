@@ -4,14 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  Calendar,
   ChevronRight,
-  Clock,
   Download,
   Folder,
   FolderOpen,
   HandHeart,
-  MapPin,
   Pin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,12 +22,6 @@ import {
   formatFileSize,
   getFileKind,
 } from "@/lib/file-kinds";
-import {
-  formatTimeRange,
-  relativeEventDate,
-  todayInEastern,
-} from "@/lib/datetime";
-
 interface RecentFile {
   id: string;
   name: string;
@@ -45,22 +36,6 @@ interface TopFolder {
   name: string;
 }
 
-interface Assignment {
-  id: string;
-  slot: {
-    id: string;
-    name: string;
-    event: {
-      id: string;
-      title: string;
-      eventDate: string;
-      startTime: string;
-      endTime: string | null;
-      location: string | null;
-    };
-  };
-}
-
 /** How many of each list the dashboard shows before deferring to a full page. */
 const RECENT_FILE_COUNT = 3;
 const FOLDER_COUNT = 4;
@@ -69,16 +44,14 @@ const FOLDER_COUNT = 4;
  * The peer minister landing page.
  *
  * Kept deliberately short: almost everyone opens this on a phone, and the tab
- * bar already covers Files, Schedule and Sign-Ups. So this screen answers
- * "what do I need right now" — the next thing they are on for, whatever an
- * admin has pinned, and a few shortcuts — rather than trying to be a full
- * index of everything.
+ * bar already covers Files and Sign-Ups. So this screen answers "what do I
+ * need right now" — whatever an admin has pinned, open sign-ups, and a few
+ * shortcuts — rather than trying to be a full index of everything.
  */
 export function PeerDashboard({ firstName }: { firstName: string }) {
   const [files, setFiles] = useState<RecentFile[]>([]);
   const [featured, setFeatured] = useState<RecentFile[]>([]);
   const [folders, setFolders] = useState<TopFolder[]>([]);
-  const [nextAssignment, setNextAssignment] = useState<Assignment | null>(null);
   const [openSignups, setOpenSignups] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState<RecentFile | null>(null);
@@ -88,13 +61,11 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
 
     const load = async () => {
       try {
-        const [filesRes, assignmentsRes, opportunitiesRes, signupsRes] =
-          await Promise.all([
-            fetch(`/api/files?recent=${RECENT_FILE_COUNT}`),
-            fetch("/api/assignments"),
-            fetch("/api/opportunities"),
-            fetch("/api/signups"),
-          ]);
+        const [filesRes, opportunitiesRes, signupsRes] = await Promise.all([
+          fetch(`/api/files?recent=${RECENT_FILE_COUNT}`),
+          fetch("/api/opportunities"),
+          fetch("/api/signups"),
+        ]);
 
         if (cancelled) return;
 
@@ -103,17 +74,6 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
           setFiles(data.files ?? []);
           setFolders(data.folders ?? []);
           setFeatured(data.featured ?? []);
-        }
-
-        if (assignmentsRes.ok) {
-          const data: Assignment[] = await assignmentsRes.json();
-          const today = todayInEastern();
-          const upcoming = data
-            .filter((item) => item.slot.event.eventDate >= today)
-            .sort((a, b) =>
-              a.slot.event.eventDate.localeCompare(b.slot.event.eventDate)
-            );
-          setNextAssignment(upcoming[0] ?? null);
         }
 
         // One number for both kinds of sign-up — the teen doesn't care which
@@ -156,45 +116,6 @@ export function PeerDashboard({ firstName }: { firstName: string }) {
       <h1 className="font-heading text-2xl font-bold text-navy sm:text-3xl">
         Hi, {firstName}
       </h1>
-
-      {/* The one personal, time-sensitive thing — so it goes first. */}
-      {nextAssignment && (
-        <Link
-          href="/my/schedule"
-          className="block rounded-xl border-2 border-navy bg-navy/5 p-4 transition-colors hover:bg-navy/10"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-navy">
-            {relativeEventDate(nextAssignment.slot.event.eventDate) === "Today"
-              ? "You're on today"
-              : "You're next on"}
-          </p>
-          <p className="mt-1 font-semibold text-gray-900">
-            {nextAssignment.slot.event.title}
-          </p>
-          <p className="text-sm font-medium text-navy">
-            {nextAssignment.slot.name}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-4 w-4 flex-shrink-0" />
-              {relativeEventDate(nextAssignment.slot.event.eventDate)}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-4 w-4 flex-shrink-0" />
-              {formatTimeRange(
-                nextAssignment.slot.event.startTime,
-                nextAssignment.slot.event.endTime
-              )}
-            </span>
-            {nextAssignment.slot.event.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4 flex-shrink-0" />
-                {nextAssignment.slot.event.location}
-              </span>
-            )}
-          </div>
-        </Link>
-      )}
 
       {/* Pinned by an admin — usually the ministry calendar. Images render in
           place; anything else gets a card that opens the viewer. */}

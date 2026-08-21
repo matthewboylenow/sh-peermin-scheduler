@@ -124,8 +124,7 @@ function VerifyPageContent() {
         throw new Error(data.error || "Verification failed");
       }
 
-      // Redirect to schedule
-      router.push("/my/schedule");
+      router.push("/my");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setCode(["", "", "", "", "", ""]);
