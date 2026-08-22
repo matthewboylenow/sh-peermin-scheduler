@@ -9,7 +9,6 @@ import {
   format,
   isSameMonth,
   isToday,
-  parse,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -37,10 +36,11 @@ interface PublicEvent {
  * identifies a peer minister. Tapping an event opens its details in place
  * rather than navigating, since the host page owns the URL.
  *
- * Two layouts. A month grid on anything tablet-sized and up, and a plain
- * agenda list on phones: seven columns across 390px leaves ~49px per day,
- * which truncated every title to a letter and an ellipsis and gave a 39x20
- * tap target. A list has room for the title, the time and the place.
+ * A month grid at every width. A phone-sized agenda list was tried and taken
+ * back out: it only lists days that have something on them, which reads as a
+ * list of upcoming events rather than a calendar, and seeing the shape of the
+ * month is the point. Titles do truncate in a 49px column — that is the
+ * trade, and it is the one the parish wants.
  */
 export default function EmbedCalendarPage() {
   const [cursor, setCursor] = useState(() => new Date());
@@ -49,7 +49,6 @@ export default function EmbedCalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const isPhone = useIsPhone();
 
   const gridStart = useMemo(() => startOfWeek(startOfMonth(cursor)), [cursor]);
   const gridEnd = useMemo(() => endOfWeek(endOfMonth(cursor)), [cursor]);
@@ -57,11 +56,6 @@ export default function EmbedCalendarPage() {
     () => eachDayOfInterval({ start: gridStart, end: gridEnd }),
     [gridStart, gridEnd]
   );
-
-  // The agenda only ever shows the month itself, never the neighbouring days
-  // the grid needs to fill its first and last rows.
-  const monthStart = useMemo(() => startOfMonth(cursor), [cursor]);
-  const monthEnd = useMemo(() => endOfMonth(cursor), [cursor]);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,29 +95,11 @@ export default function EmbedCalendarPage() {
     return map;
   }, [events]);
 
-  /** Days in this month that actually have something on them, in order. */
-  const agendaDays = useMemo(() => {
-    const from = format(monthStart, "yyyy-MM-dd");
-    const to = format(monthEnd, "yyyy-MM-dd");
-    return [...byDate.keys()]
-      .filter((key) => key >= from && key <= to)
-      .sort()
-      .map((key) => ({ key, events: byDate.get(key)! }));
-  }, [byDate, monthStart, monthEnd]);
-
   /** Only the kinds present this month — a key to seven colours is noise. */
   const legend = useMemo(() => {
-    const present = new Set(
-      (isPhone
-        ? agendaDays.flatMap((d) => d.events)
-        : events.filter((e) => {
-            const d = parse(e.eventDate, "yyyy-MM-dd", new Date());
-            return d >= gridStart && d <= gridEnd;
-          })
-      ).map((e) => e.eventType)
-    );
+    const present = new Set(events.map((e) => e.eventType));
     return EVENT_TYPES.filter((t) => present.has(t.value));
-  }, [events, agendaDays, isPhone, gridStart, gridEnd]);
+  }, [events]);
 
   const showToday = !isSameMonth(cursor, new Date());
 
@@ -150,7 +126,7 @@ export default function EmbedCalendarPage() {
       observer.disconnect();
       window.removeEventListener("resize", publishHeight);
     };
-  }, [publishHeight, events, selected, isLoading, isPhone]);
+  }, [publishHeight, events, selected, isLoading]);
 
   // Escape closes the details, the convention every dialog is expected to follow.
   useEffect(() => {
@@ -206,56 +182,7 @@ export default function EmbedCalendarPage() {
           The calendar couldn&apos;t be loaded right now. Please try again
           later.
         </p>
-      ) : isPhone ? (
-        /* ---------- Agenda, for phones ---------- */
-        <div className="space-y-4">
-          {agendaDays.map(({ key, events: dayEvents }) => {
-            const day = parse(key, "yyyy-MM-dd", new Date());
-            return (
-              <section key={key}>
-                <h3
-                  className={`mb-1.5 text-xs font-bold uppercase tracking-wider ${
-                    isToday(day) ? "text-rust" : "text-gray-500"
-                  }`}
-                >
-                  {format(day, "EEEE, MMMM d")}
-                  {isToday(day) && " · Today"}
-                </h3>
-                <div className="space-y-1.5">
-                  {dayEvents.map((event) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => setSelected(event)}
-                      className="flex min-h-[56px] w-full items-stretch gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors active:bg-gray-50"
-                    >
-                      <span
-                        className={`w-1 flex-shrink-0 rounded-full ${eventTypeDot(event.eventType)}`}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-gray-900">
-                          {event.title}
-                        </span>
-                        <span className="mt-0.5 block text-sm text-gray-600">
-                          {formatTimeRange(event.startTime, event.endTime)}
-                        </span>
-                        {event.location && (
-                          <span className="mt-0.5 block truncate text-sm text-gray-500">
-                            {event.location}
-                          </span>
-                        )}
-                      </span>
-                      <ChevronRight className="h-5 w-5 flex-shrink-0 self-center text-gray-300" />
-                    </button>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
       ) : (
-        /* ---------- Month grid, for tablets and up ---------- */
         <>
           <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
@@ -321,7 +248,7 @@ export default function EmbedCalendarPage() {
         <p className="pt-3 text-center text-xs text-gray-400">Loading…</p>
       )}
 
-      {!failed && !isLoading && (isPhone ? agendaDays.length === 0 : events.length === 0) && (
+      {!failed && !isLoading && events.length === 0 && (
         <p className="py-6 text-center text-sm text-gray-500">
           Nothing scheduled this month.
         </p>
@@ -420,20 +347,3 @@ export default function EmbedCalendarPage() {
   );
 }
 
-/**
- * Phone-sized viewport. Starts false so the server and the first client render
- * agree; the grid is the safer thing to flash on a wide screen.
- */
-function useIsPhone() {
-  const [isPhone, setIsPhone] = useState(false);
-
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 639px)");
-    const update = () => setIsPhone(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-
-  return isPhone;
-}
