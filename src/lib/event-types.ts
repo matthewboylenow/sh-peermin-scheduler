@@ -5,10 +5,13 @@
  * new kind meant finding all six and one of them silently kept the old list.
  *
  * Order here is the order they appear in pickers and the calendar legend.
+ *
+ * Removing an entry hides it from the pickers and the legend but leaves the
+ * value in the database enum, so an old event still carrying it keeps working
+ * — eventTypeLabel falls back to the stored value rather than blanking.
  */
 export const EVENT_TYPES = [
   { value: 'mass', label: 'Mass', badge: 'bg-navy text-white', dot: 'bg-navy' },
-  { value: 'clow', label: 'CLOW', badge: 'bg-rust text-white', dot: 'bg-rust' },
   {
     value: 'adoration',
     label: 'Adoration',
@@ -18,8 +21,8 @@ export const EVENT_TYPES = [
   },
   {
     value: 'service',
-    label: 'Service',
-    // Dark orange, for service opportunities.
+    label: 'Corporal Service',
+    // Dark orange, for the corporal works of mercy.
     badge: 'bg-amber-700 text-white',
     dot: 'bg-amber-700',
   },

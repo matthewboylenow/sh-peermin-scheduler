@@ -20,14 +20,13 @@ import {
 } from "@/components/ui/select";
 import { Download, Calendar, Users, FileSpreadsheet } from "lucide-react";
 import { format, addMonths } from "date-fns";
+import { EVENT_TYPES } from "@/lib/event-types";
 
+// Built from the shared list rather than repeated, which is how this one kept
+// offering CLOW and never learned about Adoration or Corporal Service.
 const eventTypes = [
   { value: "all", label: "All Event Types" },
-  { value: "mass", label: "Mass" },
-  { value: "clow", label: "CLOW" },
-  { value: "volunteer", label: "Volunteer" },
-  { value: "ministry", label: "Ministry" },
-  { value: "other", label: "Other" },
+  ...EVENT_TYPES.map((type) => ({ value: type.value, label: type.label })),
 ];
 
 export default function ExportPage() {
