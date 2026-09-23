@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { validationError } from '@/lib/validation-error';
 
 const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
@@ -159,10 +160,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating user:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to update user' },

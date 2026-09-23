@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
+import { validationError } from '@/lib/validation-error';
 
 const createUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -144,10 +145,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating user:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to create user' },

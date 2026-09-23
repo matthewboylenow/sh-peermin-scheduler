@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getPeerSession } from '@/lib/peer-session';
 import { unauthorized } from '@/lib/api-auth';
+import { validationError } from '@/lib/validation-error';
 
 const createAssignmentSchema = z.object({
   slotId: z.string().uuid(),
@@ -217,10 +218,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating assignment:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to create assignment' },

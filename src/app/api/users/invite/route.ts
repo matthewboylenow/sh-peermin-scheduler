@@ -5,6 +5,7 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
+import { validationError } from '@/lib/validation-error';
 
 // POST /api/users/invite - Generate invite link
 export async function POST() {
@@ -160,10 +161,7 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Error accepting invite:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to accept invite' },

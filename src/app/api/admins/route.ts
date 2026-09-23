@@ -5,6 +5,7 @@ import { users } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import { validationError } from '@/lib/validation-error';
 
 const createAdminSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -130,10 +131,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating admin:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to create admin' },

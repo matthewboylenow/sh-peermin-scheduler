@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { sendSMS } from '@/lib/twilio';
 import { formatEventDate, formatTime } from '@/lib/datetime';
 import { z } from 'zod';
+import { validationError } from '@/lib/validation-error';
 
 // Default message template
 const DEFAULT_MESSAGE_TEMPLATE = 'Hi {name}! Reminder: You\'re scheduled for "{role}" at {event} on {date} at {time} at {location}. Thank you for serving! - Saint Helen Parish';
@@ -128,10 +129,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error sending reminder:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to send reminder' },

@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { slots, assignments } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { validationError } from '@/lib/validation-error';
 
 const updateSlotSchema = z.object({
   name: z.string().min(1).optional(),
@@ -39,10 +40,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating slot:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to update slot' },

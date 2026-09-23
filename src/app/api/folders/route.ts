@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { folders } from '@/db/schema';
 import { z } from 'zod';
+import { validationError } from '@/lib/validation-error';
 
 const createFolderSchema = z.object({
   name: z.string().min(1, 'Folder name is required'),
@@ -30,10 +31,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating folder:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to create folder' },

@@ -6,12 +6,25 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { timeField } from '@/lib/time-field';
 import { EVENT_TYPE_VALUES } from '@/lib/event-types';
+import { validationError } from '@/lib/validation-error';
 
+/**
+ * Every field the edit form can clear accepts null as well as being omitted.
+ *
+ * Clearing a box sends null — that is what "no description" looks like over
+ * the wire, and the column is nullable. `description` used to be
+ * `z.string().optional()`, so saving any event that had no description at all
+ * failed with a bare "Validation error" and no way to get past it. Keep the
+ * nulls and the omissions both legal here.
+ */
 const updateEventSchema = z.object({
-  title: z.string().min(1).optional(),
-  description: z.string().optional(),
+  title: z.string().min(1, 'Title is required').optional(),
+  description: z.string().nullable().optional(),
   eventType: z.enum(EVENT_TYPE_VALUES).optional(),
-  eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  eventDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format')
+    .optional(),
   startTime: timeField.optional(),
   endTime: timeField.optional().nullable(),
   location: z.string().optional().nullable(),
@@ -146,10 +159,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating event:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to update event' },

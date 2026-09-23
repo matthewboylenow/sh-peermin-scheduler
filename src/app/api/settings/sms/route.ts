@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { smsSettings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { validationError } from '@/lib/validation-error';
 
 // Default values for SMS settings
 const DEFAULT_REMINDER_DAYS = [1];
@@ -117,10 +118,7 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Error updating SMS settings:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to update SMS settings' },

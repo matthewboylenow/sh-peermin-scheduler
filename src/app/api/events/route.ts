@@ -8,17 +8,20 @@ import { z } from 'zod';
 import { timeField } from '@/lib/time-field';
 import { EVENT_TYPE_VALUES } from '@/lib/event-types';
 import { addDays, addWeeks, addMonths, parseISO, format } from 'date-fns';
+import { validationError } from '@/lib/validation-error';
 
 const createEventSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
+  // Nullable as well as optional, matching the update schema — a cleared box
+  // sends null and the column is nullable.
+  description: z.string().nullable().optional(),
   eventType: z.enum(EVENT_TYPE_VALUES),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
   startTime: timeField,
-  endTime: timeField.optional(),
-  location: z.string().optional(),
-  signupUrl: z.string().url().optional().or(z.literal('')),
-  signupSource: z.enum(['signupgenius', 'manual']).optional(),
+  endTime: timeField.nullable().optional(),
+  location: z.string().nullable().optional(),
+  signupUrl: z.string().url().nullable().optional().or(z.literal('')),
+  signupSource: z.enum(['signupgenius', 'manual']).nullable().optional(),
   flyerFileId: z.string().uuid().nullable().optional(),
   recurrenceType: z.enum(['none', 'daily', 'weekly', 'biweekly', 'monthly']).default('none'),
   recurrenceEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -257,10 +260,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating event:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to create event' },

@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { slots } from '@/db/schema';
 import { z } from 'zod';
+import { validationError } from '@/lib/validation-error';
 
 const createSlotSchema = z.object({
   eventId: z.string().uuid(),
@@ -33,10 +34,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating slot:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return validationError(error);
     }
     return NextResponse.json(
       { error: 'Failed to create slot' },
